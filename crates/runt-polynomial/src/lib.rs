@@ -3,6 +3,7 @@ use num_traits::{Zero, One};
 use std::fmt::Write;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, MulAssign, SubAssign, DivAssign};
 use std::cmp::max;
+use runt_alg::*;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Polynomial<T> {
@@ -17,8 +18,16 @@ impl<T> Polynomial<T> {
         Polynomial { cs: vec![] }
     }
 
-    pub fn coefficients(&self) -> &[T] {
+    pub fn coeffs(&self) -> &[T] {
         &self.cs
+    }
+
+    pub fn degree(&self) -> usize {
+        self.cs.len().saturating_sub(1)
+    }
+
+    pub fn lc(&self) -> &T {
+        &self.cs[self.cs.len() - 1]
     }
 }
 
@@ -112,8 +121,8 @@ impl<T: Add<Output=T>> Add<Polynomial<T>> for Polynomial<T> {
     type Output = Polynomial<T>;
     
     fn add(self, other: Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.into_iter().rev();
-        let mut ocs = other.cs.into_iter().rev();
+        let mut scs = self.cs.into_iter();
+        let mut ocs = other.cs.into_iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -144,8 +153,8 @@ where for<'b> &'b T: Add<T, Output=T> {
     type Output = Polynomial<T>;
 
     fn add(self, other: Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.iter().rev();
-        let mut ocs = other.cs.into_iter().rev();
+        let mut scs = self.cs.iter();
+        let mut ocs = other.cs.into_iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -176,8 +185,8 @@ where for<'b> T: Add<&'b T, Output=T> {
     type Output = Polynomial<T>;
 
     fn add(self, other: &Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.into_iter().rev();
-        let mut ocs = other.cs.iter().rev();
+        let mut scs = self.cs.into_iter();
+        let mut ocs = other.cs.iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -208,8 +217,8 @@ where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
     type Output = Polynomial<T>;
 
     fn add(self, other: &Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.iter().rev();
-        let mut ocs = other.cs.iter().rev();
+        let mut scs = self.cs.iter();
+        let mut ocs = other.cs.iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -241,8 +250,8 @@ impl<T: Sub<Output=T> + Neg<Output=T>> Sub<Polynomial<T>> for Polynomial<T> {
     type Output = Polynomial<T>;
     
     fn sub(self, other: Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.into_iter().rev();
-        let mut ocs = other.cs.into_iter().rev();
+        let mut scs = self.cs.into_iter();
+        let mut ocs = other.cs.into_iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -273,8 +282,8 @@ where for<'b> &'b T: Sub<T, Output=T> {
     type Output = Polynomial<T>;
 
     fn sub(self, other: Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.iter().rev();
-        let mut ocs = other.cs.into_iter().rev();
+        let mut scs = self.cs.iter();
+        let mut ocs = other.cs.into_iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -305,8 +314,8 @@ where for<'b> T: Sub<&'b T, Output=T> {
     type Output = Polynomial<T>;
 
     fn sub(self, other: &Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.into_iter().rev();
-        let mut ocs = other.cs.iter().rev();
+        let mut scs = self.cs.into_iter();
+        let mut ocs = other.cs.iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -337,8 +346,8 @@ where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     type Output = Polynomial<T>;
 
     fn sub(self, other: &Polynomial<T>) -> Self::Output {
-        let mut scs = self.cs.iter().rev();
-        let mut ocs = other.cs.iter().rev();
+        let mut scs = self.cs.iter();
+        let mut ocs = other.cs.iter();
         let mut res: Vec<T> = Vec::with_capacity(max(scs.len(), ocs.len()));
         loop {
             if let Some(sval) = scs.next() {
@@ -379,23 +388,10 @@ where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
             .map(|_| Zero::zero())
             .collect::<Vec<_>>();
 
-        let mut ia = 0;
-        let mut ib = 0;
-        let l = max(self.cs.len(), other.cs.len());
-        while ia <= l {
-            loop {
-                if let (Some(x), Some(y)) = (self.cs.get(ia), other.cs.get(ib)) {
-                    res[ia + ib] += x * y;
-                }
-                if ia == 0 {
-                    break;
-                } else {
-                    ia -= 1;
-                    ib += 1;
-                }
+        for i in 0..self.cs.len() {
+            for j in 0..other.cs.len() {
+                res[i + j] += &self.coeffs()[i] * &other.coeffs()[j];
             }
-            ia = ib + 1;
-            ib = 0;
         }
 
         Polynomial::from_coefficients(res)
@@ -701,6 +697,51 @@ impl<'a, T: Clone + Neg<Output=T>> Neg for &'a Polynomial<T> {
     }
 }
 
+// Implementations for runt-algs traits
+// TODO: Take a closer look at these weird requirements
+impl<T: AssociativeAddition> AssociativeAddition for Polynomial<T> {}
+impl<T: CommutativeAddition + AssociativeAddition> CommutativeAddition for Polynomial<T> {}
+impl<T: AssociativeMultiplication + CommutativeAddition + AssociativeAddition> AssociativeMultiplication for Polynomial<T> {}
+impl<T: CommutativeMultiplication + CommutativeAddition + AssociativeAddition> CommutativeMultiplication for Polynomial<T> {}
+impl<T: NonZeroProdProperty> NonZeroProdProperty for Polynomial<T> {}
+
+impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
+    type Output = Polynomial<T>;
+    type MultType = T;
+
+    fn pseudo_divrem(u: &Polynomial<T>, v: &Polynomial<T>) -> PseudoDivRemResult<Polynomial<T>, T> {
+        // Algorithm R from Knuth Vol 2
+        let m = u.degree();
+        let n = v.degree();
+        if m < n {
+            return PseudoDivRemResult {
+                mul: One::one(),
+                div: Zero::zero(),
+                rem: u.clone(),
+            };
+        }
+        let mut u = u.coeffs().to_owned();
+        let mut qs = vec![Zero::zero(); m - n + 1];
+        for k in (0..=(m - n)).rev() {
+            qs[k] = &u[n + k] * &v.lc().pow(&(k as u64));
+            for j in (0..=(n + k - 1)).rev() {
+                if j < k {
+                    u[j] = v.lc() * &u[j];
+                } else {
+                    u[j] = &(v.lc() * &u[j]) - &(&u[n + k] * &v.coeffs()[j - k]);
+                }
+            }
+        }
+        u.truncate(n - 1);
+        PseudoDivRemResult {
+            mul: v.lc().pow(&((m - n + 1) as u64)),
+            div: Polynomial::from_coefficients(qs),
+            rem: Polynomial::from_coefficients(u),
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -716,5 +757,23 @@ mod tests {
         
         let p = Polynomial::from_coefficients(vec![1, 1, -20]);
         assert_eq!(p.eval(&2), -77);
+    }
+
+    #[test]
+    fn test_misc() {
+        let p = Polynomial::from_coefficients(vec![2, 1, -3]);
+        let q = Polynomial::from_coefficients(vec![2, 0, 0, 1, -3]);
+        println!("{}", (&p + &q).pretty_format("x"))
+    }
+
+    #[test]
+    fn test_polynomial_division() {
+        let u = Polynomial::from_coefficients(vec![-5, 2, 8, -3, -3, 0, 1, 0, 1]);
+        let v = Polynomial::from_coefficients(vec![21, -9, -4, 0, 5, 0, 3]);
+        let dr = PseudoDivRem::pseudo_divrem(&u, &v);
+        let lhs = &u * dr.mul;
+        let rhs = &dr.div * &v + &dr.rem;
+        // TODO: Turn this into an actual test, choosing several combinations of u and v
+        println!("{} should equal {}", lhs.pretty_format("x"), rhs.pretty_format("x"));
     }
 }

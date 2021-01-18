@@ -4,7 +4,6 @@ use std::ops::*;
 pub use num_traits::identities::{One, Zero};
 pub use ramp::Int;
 pub use ramp::rational::Rational;
-pub use runt_polynomial::Polynomial;
 
 use static_assertions::assert_impl_all;
 
@@ -120,15 +119,96 @@ assert_impl_all!(f64: Field);
 assert_impl_all!(Int: Ring);
 assert_impl_all!(Rational: Field);
 
-// Implementations for runt-polynomial's Polynomial type
-// TODO: Take a closer look at these weird requirements
-impl<T: AssociativeAddition> AssociativeAddition for Polynomial<T> {}
-impl<T: CommutativeAddition + AssociativeAddition> CommutativeAddition for Polynomial<T> {}
-impl<T: AssociativeMultiplication + CommutativeAddition + AssociativeAddition> AssociativeMultiplication for Polynomial<T> {}
-impl<T: CommutativeMultiplication + CommutativeAddition + AssociativeAddition> CommutativeMultiplication for Polynomial<T> {}
-impl<T: NonZeroProdProperty> NonZeroProdProperty for Polynomial<T> {}
+// DivRem
 
-assert_impl_all!(Polynomial<Int>: Ring, CommutativeRing);
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct DivRemResult<T> {
+    pub div: T,
+    pub rem: T,
+}
+
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PseudoDivRemResult<T, U> {
+    pub mul: U,
+    pub div: T,
+    pub rem: T,
+}
+
+pub trait PseudoDivRem {
+    type Output;
+    type MultType;
+
+    fn pseudo_divrem(a: Self, b: Self) -> PseudoDivRemResult<Self::Output, Self::MultType>;
+}
+
+pub trait DivRem {
+    type Output;
+
+    fn divrem(a: Self, b: Self) -> DivRemResult<Self::Output>;
+}
+
+impl<V, T: Rem<T, Output=V> + Div<T, Output=V> + Clone> DivRem for T {
+    type Output=V;
+
+    fn divrem(a: T, b: T) -> DivRemResult<V> {
+        DivRemResult {
+            div: a.clone() / b.clone(),
+            rem: a % b,
+        }
+    }
+}
+
+assert_impl_all!(i64: DivRem);
+assert_impl_all!(f64: DivRem);
+assert_impl_all!(&u32: DivRem);
+assert_impl_all!(Int: DivRem);
+assert_impl_all!(&Int: DivRem);
+
+// Multiplicative Exponentiation
+
+pub trait Power {
+    type Power;
+    type Output;
+
+    fn pow(self, val: &Self::Power) -> Self::Output;
+}
+
+impl<V: One + MulAssign<T> + MulAssign<V> + Clone, T: Mul<T, Output=V> + Clone> Power for T
+where for<'a> V: MulAssign<&'a V>
+{
+    type Power = u64;
+    type Output = V;
+
+    fn pow(self, val: &u64) -> V {
+        // A simple exponentiation by squaring algorithm. This is a little complicated because we
+        // are general enough that V can be u32 and T can be &u32, for example
+        let mut res: V = One::one();
+        let mut e = *val;
+
+        // Unrolled first iteration
+        if e & 1 == 1 {
+            res *= self.clone();
+        }
+        e >>= 1;
+        
+        let mut acc: V = self.clone() * self;
+
+        while e != 0 {
+            if e & 1 == 1 {
+                res *= &acc;
+            }
+            acc *= acc.clone();
+            e >>= 1;
+        }
+        res
+    }
+}
+
+assert_impl_all!(u32: Power);
+assert_impl_all!(&u32: Power);
+assert_impl_all!(Int: Power);
+assert_impl_all!(&Int: Power);
+assert_impl_all!(f32: Power);
 
 #[cfg(test)]
 mod tests {
@@ -141,5 +221,10 @@ mod tests {
     #[test]
     fn main_test() {
         assert_eq!(my_append(&10, &12), 22);
+    }
+
+    #[test]
+    fn test_exponent() {
+        assert_eq!(2.pow(&4), 16);
     }
 }
