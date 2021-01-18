@@ -210,6 +210,22 @@ impl<V, T: Rem<T, Output=V> + Div<T, Output=V> + Clone> DivRem for T {
     }
 }
 
+impl<V, T> PseudoDivRem for T
+where T: DivRem<Output=V>,
+      V: One {
+    type Output = V;
+    type MultType = V;
+
+    fn pseudo_divrem(a: Self, b: Self) -> PseudoDivRemResult<V, V> {
+        let dr = DivRem::divrem(a, b);
+        PseudoDivRemResult {
+            mul: One::one(),
+            div: dr.div,
+            rem: dr.rem,
+        }
+    }
+}
+
 assert_impl_all!(i64: DivRem);
 assert_impl_all!(f64: DivRem);
 assert_impl_all!(&u32: DivRem);
