@@ -1,6 +1,7 @@
 #![feature(trait_alias)]
 
 use std::ops::*;
+use ordered_float::NotNan;
 pub use num_traits::identities::{One, Zero};
 pub use ramp::Int;
 pub use ramp::rational::Rational;
@@ -79,6 +80,31 @@ pub trait CommutativeRing = Ring + CommutativeMultiplication;
 pub trait IntegralDomain = CommutativeRing + NonZeroProdProperty;
 pub trait Field = IntegralDomain + ClosedDivision + ExactDivision;
 
+pub trait EuclideanFunction {
+    type Order: std::cmp::Ord;
+
+    fn norm(&self) -> Self::Order;
+    fn gcd(&self, other: &Self) -> Self 
+    where Self: DivRem<Output=Self> + Clone + Zero
+    {
+        let mut a = self.clone();
+        let mut b = other.clone();
+        while !b.is_zero() {
+            let t = b.clone();
+            b = DivRem::divrem(a, b).rem;
+            a = t;
+        }
+        a
+    }
+}
+
+pub fn gcd<T: EuclideanFunction>(a: &T, b: &T) -> T
+    where T: DivRem<Output=T> + Clone + Zero {
+    a.gcd(b)
+}
+
+pub trait EuclideanDomain = EuclideanFunction + IntegralDomain;
+
 // Implement our traits for integral types
 
 macro_rules! impl_num_type {
@@ -88,6 +114,32 @@ macro_rules! impl_num_type {
         impl AssociativeMultiplication for $t {}
         impl CommutativeMultiplication for $t {}
         impl NonZeroProdProperty for $t {}
+
+        impl EuclideanFunction for $t {
+            type Order = $t;
+
+            fn norm(&self) -> Self::Order {
+                self.clone()
+            }
+        }
+    };
+}
+
+macro_rules! impl_num_type_f {
+    ($t:ty) => {
+        impl AssociativeAddition for $t {}
+        impl CommutativeAddition for $t {}
+        impl AssociativeMultiplication for $t {}
+        impl CommutativeMultiplication for $t {}
+        impl NonZeroProdProperty for $t {}
+
+        impl EuclideanFunction for $t {
+            type Order = NotNan<$t>;
+
+            fn norm(&self) -> Self::Order {
+                NotNan::new(self.clone()).unwrap()
+            }
+        }
     };
 }
 
@@ -101,8 +153,8 @@ impl_num_type!(i16);
 impl_num_type!(i32);
 impl_num_type!(i64);
 impl_num_type!(i128);
-impl_num_type!(f32);
-impl_num_type!(f64);
+impl_num_type_f!(f32);
+impl_num_type_f!(f64);
 
 // Implementations for ramp's arbitrary sized ints and rationals
 impl_num_type!(Int);
@@ -114,10 +166,10 @@ impl ExactDivision for Rational {}
 
 // Assertions
 
-assert_impl_all!(f32: Field);
-assert_impl_all!(f64: Field);
-assert_impl_all!(Int: Ring);
-assert_impl_all!(Rational: Field);
+assert_impl_all!(f32: Field, EuclideanFunction);
+assert_impl_all!(f64: Field, EuclideanFunction);
+assert_impl_all!(Int: Ring, EuclideanFunction);
+assert_impl_all!(Rational: Field, EuclideanFunction);
 
 // DivRem
 
@@ -226,5 +278,12 @@ mod tests {
     #[test]
     fn test_exponent() {
         assert_eq!(2.pow(&4), 16);
+    }
+
+    #[test]
+    fn test_gcd() {
+        assert_eq!(gcd(&150, &27), 3);
+        assert_eq!(gcd(&150, &100), 50);
+        assert_eq!(gcd(&27, &25), 1);
     }
 }

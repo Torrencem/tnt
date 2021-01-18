@@ -429,7 +429,6 @@ where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
 }
 
 // The *Assign traits
-// TODO: You should be able to add and mul T to Polynomial<T>
 
 impl<T: Clone> AddAssign for Polynomial<T>
 where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
@@ -732,7 +731,7 @@ impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
                 }
             }
         }
-        u.truncate(n - 1);
+        u.truncate(n);
         PseudoDivRemResult {
             mul: v.lc().pow(&((m - n + 1) as u64)),
             div: Polynomial::from_coefficients(qs),
@@ -768,12 +767,25 @@ mod tests {
 
     #[test]
     fn test_polynomial_division() {
-        let u = Polynomial::from_coefficients(vec![-5, 2, 8, -3, -3, 0, 1, 0, 1]);
-        let v = Polynomial::from_coefficients(vec![21, -9, -4, 0, 5, 0, 3]);
-        let dr = PseudoDivRem::pseudo_divrem(&u, &v);
-        let lhs = &u * dr.mul;
-        let rhs = &dr.div * &v + &dr.rem;
-        // TODO: Turn this into an actual test, choosing several combinations of u and v
-        println!("{} should equal {}", lhs.pretty_format("x"), rhs.pretty_format("x"));
+        for u in &[
+            vec![-5, 2, 8, -3, -3, 0, 1, 0, 1],
+            vec![2, 3, 4, 10, -1, 2, 0, -2, -3],
+            vec![1, 3, 2, 3, 2, 3, 4, 2, 2, 0, -1],
+        ] {
+            for v in &[
+                vec![21, -9, -4, 0, 5, 0, 3],
+                vec![0, 0, 0, 1],
+                vec![2, 3, 4, 5, 4, 3],
+            ] {
+                let u = Polynomial::from_coefficients(u.clone());
+                let v = Polynomial::from_coefficients(v.clone());
+                // println!("u = {}, v = {}", u.pretty_format("x"), v.pretty_format("x"));
+                let dr = PseudoDivRem::pseudo_divrem(&u, &v);
+                // All results should always satisfy this relation
+                let lhs = &u * dr.mul;
+                let rhs = &dr.div * &v + &dr.rem;
+                assert_eq!(lhs, rhs);
+            }
+        }
     }
 }
