@@ -1,6 +1,8 @@
 
-use runt_alg::Zero;
+use num_traits::Zero;
 use std::fmt::Write;
+use std::ops::{Add, Sub, Mul, Neg, AddAssign, MulAssign, SubAssign};
+use std::cmp::max;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Polynomial<T> {
@@ -87,8 +89,26 @@ impl<T: Display> Polynomial<T> {
     }
 }
 
-use std::ops::Add;
-use std::cmp::max;
+impl<T> Polynomial<T> {
+    pub fn eval(&self, val: &T) -> T
+    where
+        T: for<'a> AddAssign<&'a T>,
+        T: for<'a> MulAssign<&'a T>,
+        T: Zero,
+        T: Clone,
+        // for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
+        // for<'a, 'b> &'a T: Add<&'b T, Output=T>
+    {
+        let mut res = Zero::zero();
+
+        for coeff in self.cs.iter().rev() {
+            res *= val;
+            res += coeff;
+        }
+
+        res
+    }
+}
 
 impl<T: Add<Output=T>> Add<Polynomial<T>> for Polynomial<T> {
     type Output = Polynomial<T>;
@@ -216,9 +236,6 @@ where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
         }
     }
 }
-
-use std::ops::Sub;
-use std::ops::Neg;
 
 // Boilerplate: repeat the same exact thing for subtraction
 
@@ -349,12 +366,11 @@ where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     }
 }
 
-use std::ops::{Mul, AddAssign};
 // Polynomial Multiplication algorithm
 
 impl<'c, 'd, T: Zero> Mul<&'c Polynomial<T>> for &'d Polynomial<T> 
 where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
-      for<'b> T: AddAssign {
+      T: AddAssign {
     type Output = Polynomial<T>;
 
     fn mul(self, other: &Polynomial<T>) -> Self::Output {
@@ -390,7 +406,7 @@ where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
 
 impl<T: Zero> Mul<Polynomial<T>> for Polynomial<T> 
 where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
-      for<'b> T: AddAssign {
+      T: AddAssign {
     type Output = Polynomial<T>;
 
     fn mul(self, other: Polynomial<T>) -> Self::Output {
@@ -400,7 +416,7 @@ where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
 
 impl<'c, T: Zero> Mul<Polynomial<T>> for &'c Polynomial<T> 
 where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
-      for<'b> T: AddAssign {
+      T: AddAssign {
     type Output = Polynomial<T>;
 
     fn mul(self, other: Polynomial<T>) -> Self::Output {
@@ -410,13 +426,59 @@ where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
 
 impl<'d, T: Zero> Mul<&'d Polynomial<T>> for Polynomial<T> 
 where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
-      for<'b> T: AddAssign {
+      T: AddAssign {
     type Output = Polynomial<T>;
 
     fn mul(self, other: &Polynomial<T>) -> Self::Output {
         (&self) * other
     }
 }
+
+// The *Assign traits
+// TODO: You should be able to add and mul T to Polynomial<T>
+
+impl<T: Clone> AddAssign for Polynomial<T>
+where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
+    fn add_assign(&mut self, other: Self) {
+        *self = &*self + &other;
+    }
+}
+
+impl<'a, T: Clone> AddAssign<&'a Polynomial<T>> for Polynomial<T>
+where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
+    fn add_assign(&mut self, other: &Self) {
+        *self = &*self + other;
+    }
+}
+
+impl<T: Clone + Neg<Output=T>> SubAssign for Polynomial<T>
+where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
+    fn sub_assign(&mut self, other: Self) {
+        *self = &*self - &other;
+    }
+}
+
+impl<'a, T: Clone + Neg<Output=T>> SubAssign<&'a Polynomial<T>> for Polynomial<T>
+where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
+    fn sub_assign(&mut self, other: &Self) {
+        *self = &*self - &other;
+    }
+}
+
+impl<T: Zero + AddAssign> MulAssign for Polynomial<T>
+where for<'c, 'd> &'c T: Mul<&'d T, Output=T> {
+    fn mul_assign(&mut self, other: Self) {
+        *self = &*self * &other;
+    }
+}
+
+impl<'a, T: Zero + AddAssign> MulAssign<&'a Polynomial<T>> for Polynomial<T>
+where for<'c, 'd> &'c T: Mul<&'d T, Output=T> {
+    fn mul_assign(&mut self, other: &Self) {
+        *self = &*self * other;
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -426,6 +488,12 @@ mod tests {
     fn test_multiplication() {
         let p = Polynomial::from_coefficients(vec![1, 1, 1]);
         let q = Polynomial::from_coefficients(vec![1, 1]);
-        println!("({}) * ({}) = {}", p.pretty_format("x"), q.pretty_format("x"), (p * q).pretty_format("x"));
+        assert_eq!((p * q).cs, vec![1, 2, 2, 1]);
+        
+        let p = Polynomial::from_coefficients(vec![1, 1, -20, 15, -5, 10]);
+        assert_eq!(p.eval(&2), 283);
+        
+        let p = Polynomial::from_coefficients(vec![1, 1, -20]);
+        assert_eq!(p.eval(&2), -77);
     }
 }
