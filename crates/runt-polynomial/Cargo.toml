@@ -1,13 +1,8 @@
 [package]
-name = "runt"
+name = "runt-polynomial"
 version = "0.1.0"
 authors = ["Matthew Torrence <matt@torrencefamily.net>"]
 edition = "2018"
 
-[workspace]
-members = [
-    "crates/runt-alg",
-    "crates/runt-polynomial",
-]
-
 [dependencies]
+runt-alg = { path = "../runt-alg" }
