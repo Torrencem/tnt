@@ -5,5 +5,4 @@ authors = ["Matthew Torrence <matt@torrencefamily.net>"]
 edition = "2018"
 
 [dependencies]
-runt-alg = { path = "../runt-alg" }
 num-traits = "0.2.14"

@@ -1,7 +1,7 @@
 
-use num_traits::Zero;
+use num_traits::{Zero, One};
 use std::fmt::Write;
-use std::ops::{Add, Sub, Mul, Neg, AddAssign, MulAssign, SubAssign};
+use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, MulAssign, SubAssign, DivAssign};
 use std::cmp::max;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -96,8 +96,6 @@ impl<T> Polynomial<T> {
         T: for<'a> MulAssign<&'a T>,
         T: Zero,
         T: Clone,
-        // for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
-        // for<'a, 'b> &'a T: Add<&'b T, Output=T>
     {
         let mut res = Zero::zero();
 
@@ -479,6 +477,229 @@ where for<'c, 'd> &'c T: Mul<&'d T, Output=T> {
     }
 }
 
+// Traits for Polynomial<T> and T
+
+impl<T> Add<T> for Polynomial<T>
+where T: AddAssign {
+    type Output = Polynomial<T>;
+
+    fn add(mut self, other: T) -> Self {
+        self.cs[0] += other;
+        self
+    }
+}
+
+impl<'a, T> Add<&'a T> for Polynomial<T>
+where for<'b> T: AddAssign<&'b T> {
+    type Output = Polynomial<T>;
+
+    fn add(mut self, other: &T) -> Self {
+        self.cs[0] += other;
+        self
+    }
+}
+
+impl<'a, T: Clone> Add<T> for &'a Polynomial<T>
+where T: AddAssign<T> {
+    type Output = Polynomial<T>;
+
+    fn add(self, other: T) -> Polynomial<T> {
+        let mut p = self.clone();
+        p.cs[0] += other;
+        p
+    }
+}
+
+impl<'a, 'b, T: Clone> Add<&'a T> for &'b Polynomial<T>
+where for<'c> T: AddAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn add(self, other: &T) -> Polynomial<T> {
+        let mut p = self.clone();
+        p.cs[0] += other;
+        p
+    }
+}
+
+impl<T> Sub<T> for Polynomial<T>
+where T: SubAssign {
+    type Output = Polynomial<T>;
+
+    fn sub(mut self, other: T) -> Self {
+        self.cs[0] -= other;
+        self
+    }
+}
+
+impl<'a, T> Sub<&'a T> for Polynomial<T>
+where for<'b> T: SubAssign<&'b T> {
+    type Output = Polynomial<T>;
+
+    fn sub(mut self, other: &T) -> Self {
+        self.cs[0] -= other;
+        self
+    }
+}
+
+impl<'a, T: Clone> Sub<T> for &'a Polynomial<T>
+where T: SubAssign<T> {
+    type Output = Polynomial<T>;
+
+    fn sub(self, other: T) -> Polynomial<T> {
+        let mut p = self.clone();
+        p.cs[0] -= other;
+        p
+    }
+}
+
+impl<'a, 'b, T: Clone> Sub<&'a T> for &'b Polynomial<T>
+where for<'c> T: SubAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn sub(self, other: &T) -> Polynomial<T> {
+        let mut p = self.clone();
+        p.cs[0] -= other;
+        p
+    }
+}
+
+impl<T> Mul<T> for Polynomial<T>
+where for<'c> T: MulAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn mul(mut self, other: T) -> Self {
+        for val in self.cs.iter_mut() {
+            *val *= &other;
+        }
+        self
+    }
+}
+
+impl<'a, T> Mul<&'a T> for Polynomial<T>
+where for<'c> T: MulAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn mul(mut self, other: &T) -> Self {
+        for val in self.cs.iter_mut() {
+            *val *= other;
+        }
+        self
+    }
+}
+
+impl<'a, T: Clone> Mul<T> for &'a Polynomial<T>
+where for<'c> T: MulAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn mul(self, other: T) -> Polynomial<T> {
+        let mut p = self.clone();
+        for val in p.cs.iter_mut() {
+            *val *= &other;
+        }
+        p
+    }
+}
+
+impl<'a, 'b, T: Clone> Mul<&'a T> for &'b Polynomial<T>
+where for<'c> T: MulAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn mul(self, other: &T) -> Polynomial<T> {
+        let mut p = self.clone();
+        for val in p.cs.iter_mut() {
+            *val *= other;
+        }
+        p
+    }
+}
+
+impl<T> Div<T> for Polynomial<T>
+where for<'c> T: DivAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn div(mut self, other: T) -> Self {
+        for val in self.cs.iter_mut() {
+            *val /= &other;
+        }
+        self
+    }
+}
+
+impl<'a, T> Div<&'a T> for Polynomial<T>
+where for<'c> T: DivAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn div(mut self, other: &T) -> Self {
+        for val in self.cs.iter_mut() {
+            *val /= other;
+        }
+        self
+    }
+}
+
+impl<'a, T: Clone> Div<T> for &'a Polynomial<T>
+where for<'c> T: DivAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn div(self, other: T) -> Polynomial<T> {
+        let mut p = self.clone();
+        for val in p.cs.iter_mut() {
+            *val /= &other;
+        }
+        p
+    }
+}
+
+impl<'a, 'b, T: Clone> Div<&'a T> for &'b Polynomial<T>
+where for<'c> T: DivAssign<&'c T> {
+    type Output = Polynomial<T>;
+
+    fn div(self, other: &T) -> Polynomial<T> {
+        let mut p = self.clone();
+        for val in p.cs.iter_mut() {
+            *val /= other;
+        }
+        p
+    }
+}
+
+impl<T: Add<Output=T>> Zero for Polynomial<T> {
+    fn zero() -> Self {
+        Polynomial { cs: vec![] }
+    }
+    fn is_zero(&self) -> bool {
+        self.cs.is_empty()
+    }
+}
+
+impl<T: One + Zero + AddAssign + PartialEq> One for Polynomial<T> 
+where for<'c, 'd> &'c T: Mul<&'d T, Output=T> {
+    fn one() -> Self {
+        Polynomial { cs: vec![One::one()] }
+    }
+    fn is_one(&self) -> bool {
+        self.cs.len() == 1 && self.cs[0].is_one()
+    }
+}
+
+// Neg
+impl<T: Neg<Output=T>> Neg for Polynomial<T> {
+    type Output = Self;
+
+    fn neg(mut self) -> Self {
+        Polynomial { cs: self.cs.drain(..)
+            .map(|val| -val)
+            .collect() }
+    }
+}
+
+impl<'a, T: Clone + Neg<Output=T>> Neg for &'a Polynomial<T> {
+    type Output = Polynomial<T>;
+
+    fn neg(self) -> Polynomial<T> {
+        -(self.clone())
+    }
+}
 
 #[cfg(test)]
 mod tests {

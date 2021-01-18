@@ -4,6 +4,7 @@ use std::ops::*;
 pub use num_traits::identities::{One, Zero};
 pub use ramp::Int;
 pub use ramp::rational::Rational;
+pub use runt_polynomial::Polynomial;
 
 use static_assertions::assert_impl_all;
 
@@ -119,6 +120,15 @@ assert_impl_all!(f64: Field);
 assert_impl_all!(Int: Ring);
 assert_impl_all!(Rational: Field);
 
+// Implementations for runt-polynomial's Polynomial type
+// TODO: Take a closer look at these weird requirements
+impl<T: AssociativeAddition> AssociativeAddition for Polynomial<T> {}
+impl<T: CommutativeAddition + AssociativeAddition> CommutativeAddition for Polynomial<T> {}
+impl<T: AssociativeMultiplication + CommutativeAddition + AssociativeAddition> AssociativeMultiplication for Polynomial<T> {}
+impl<T: CommutativeMultiplication + CommutativeAddition + AssociativeAddition> CommutativeMultiplication for Polynomial<T> {}
+impl<T: NonZeroProdProperty> NonZeroProdProperty for Polynomial<T> {}
+
+assert_impl_all!(Polynomial<Int>: Ring, CommutativeRing);
 
 #[cfg(test)]
 mod tests {
