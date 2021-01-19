@@ -1,4 +1,6 @@
 
+#![feature(iterator_fold_self)]
+
 use num_traits::{Zero, One};
 use std::fmt::Write;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, MulAssign, SubAssign, DivAssign};
@@ -29,10 +31,35 @@ impl<T> Polynomial<T> {
     pub fn lc(&self) -> &T {
         &self.cs[self.cs.len() - 1]
     }
+
+    pub fn cont(&self) -> T
+    where T: Gcd + Zero + Clone {
+        self.cs.iter()
+            .cloned()
+            .fold_first(|a, b| {
+                gcd(&a, &b)
+            })
+            .unwrap_or_else(|| Zero::zero())
+    }
+
+    pub fn pp<U>(&self) -> Polynomial<T>
+    where T: Gcd + Zero + Clone + PseudoDivRem<Output=T, MultType=U>
+    {
+        let c = self.cont();
+        let mut p = self.clone();
+        for coeff in p.cs.iter_mut() {
+            let val = PseudoDivRem::pseudo_divrem(coeff.clone(), c.clone()).div;
+            *coeff = val;
+        }
+        p
+    }
 }
 
 impl<T: Zero> Polynomial<T> {
     pub fn from_coefficients(mut coefficients: Vec<T>) -> Self {
+        if coefficients.is_empty() {
+            return Polynomial { cs: vec![] };
+        }
         // Remove trailing zeroes from the coefficients
         let mut i = coefficients.len() - 1;
         loop {
@@ -117,7 +144,7 @@ impl<T> Polynomial<T> {
     }
 }
 
-impl<T: Add<Output=T>> Add<Polynomial<T>> for Polynomial<T> {
+impl<T: Add<Output=T> + Zero> Add<Polynomial<T>> for Polynomial<T> {
     type Output = Polynomial<T>;
     
     fn add(self, other: Polynomial<T>) -> Self::Output {
@@ -142,13 +169,11 @@ impl<T: Add<Output=T>> Add<Polynomial<T>> for Polynomial<T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
-impl<'a, T: Clone> Add<Polynomial<T>> for &'a Polynomial<T>
+impl<'a, T: Clone + Zero> Add<Polynomial<T>> for &'a Polynomial<T>
 where for<'b> &'b T: Add<T, Output=T> {
     type Output = Polynomial<T>;
 
@@ -174,13 +199,11 @@ where for<'b> &'b T: Add<T, Output=T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
-impl<'a, T: Clone> Add<&'a Polynomial<T>> for Polynomial<T>
+impl<'a, T: Clone + Zero> Add<&'a Polynomial<T>> for Polynomial<T>
 where for<'b> T: Add<&'b T, Output=T> {
     type Output = Polynomial<T>;
 
@@ -206,13 +229,11 @@ where for<'b> T: Add<&'b T, Output=T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
-impl<'a, 'b, T: Clone> Add<&'b Polynomial<T>> for &'a Polynomial<T>
+impl<'a, 'b, T: Clone + Zero> Add<&'b Polynomial<T>> for &'a Polynomial<T>
 where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
     type Output = Polynomial<T>;
 
@@ -238,15 +259,13 @@ where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
 // Boilerplate: repeat the same exact thing for subtraction
 
-impl<T: Sub<Output=T> + Neg<Output=T>> Sub<Polynomial<T>> for Polynomial<T> {
+impl<T: Sub<Output=T> + Neg<Output=T> + Zero> Sub<Polynomial<T>> for Polynomial<T> {
     type Output = Polynomial<T>;
     
     fn sub(self, other: Polynomial<T>) -> Self::Output {
@@ -271,13 +290,11 @@ impl<T: Sub<Output=T> + Neg<Output=T>> Sub<Polynomial<T>> for Polynomial<T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
-impl<'a, T: Clone + Neg<Output=T>> Sub<Polynomial<T>> for &'a Polynomial<T>
+impl<'a, T: Clone + Neg<Output=T> + Zero> Sub<Polynomial<T>> for &'a Polynomial<T>
 where for<'b> &'b T: Sub<T, Output=T> {
     type Output = Polynomial<T>;
 
@@ -303,13 +320,11 @@ where for<'b> &'b T: Sub<T, Output=T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
-impl<'a, T: Clone + Neg<Output=T>> Sub<&'a Polynomial<T>> for Polynomial<T>
+impl<'a, T: Clone + Neg<Output=T> + Zero> Sub<&'a Polynomial<T>> for Polynomial<T>
 where for<'b> T: Sub<&'b T, Output=T> {
     type Output = Polynomial<T>;
 
@@ -335,13 +350,11 @@ where for<'b> T: Sub<&'b T, Output=T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
-impl<'a, 'b, T: Clone + Neg<Output=T>> Sub<&'b Polynomial<T>> for &'a Polynomial<T>
+impl<'a, 'b, T: Clone + Neg<Output=T> + Zero> Sub<&'b Polynomial<T>> for &'a Polynomial<T>
 where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     type Output = Polynomial<T>;
 
@@ -367,9 +380,7 @@ where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
                 break;
             }
         }
-        Polynomial {
-            cs: res
-        }
+        Polynomial::from_coefficients(res)
     }
 }
 
@@ -430,28 +441,28 @@ where for<'a, 'b> &'a T: Mul<&'b T, Output=T>,
 
 // The *Assign traits
 
-impl<T: Clone> AddAssign for Polynomial<T>
+impl<T: Clone + Zero> AddAssign for Polynomial<T>
 where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
     fn add_assign(&mut self, other: Self) {
         *self = &*self + &other;
     }
 }
 
-impl<'a, T: Clone> AddAssign<&'a Polynomial<T>> for Polynomial<T>
+impl<'a, T: Clone + Zero> AddAssign<&'a Polynomial<T>> for Polynomial<T>
 where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
     fn add_assign(&mut self, other: &Self) {
         *self = &*self + other;
     }
 }
 
-impl<T: Clone + Neg<Output=T>> SubAssign for Polynomial<T>
+impl<T: Clone + Neg<Output=T> + Zero> SubAssign for Polynomial<T>
 where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     fn sub_assign(&mut self, other: Self) {
         *self = &*self - &other;
     }
 }
 
-impl<'a, T: Clone + Neg<Output=T>> SubAssign<&'a Polynomial<T>> for Polynomial<T>
+impl<'a, T: Clone + Neg<Output=T> + Zero> SubAssign<&'a Polynomial<T>> for Polynomial<T>
 where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     fn sub_assign(&mut self, other: &Self) {
         *self = &*self - &other;
@@ -658,7 +669,7 @@ where for<'c> T: DivAssign<&'c T> {
     }
 }
 
-impl<T: Add<Output=T>> Zero for Polynomial<T> {
+impl<T: Add<Output=T> + Zero> Zero for Polynomial<T> {
     fn zero() -> Self {
         Polynomial { cs: vec![] }
     }
@@ -740,6 +751,102 @@ impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
     }
 }
 
+impl<T> EuclideanFunction for Polynomial<T> {
+    type Order = usize;
+
+    fn norm(&self) -> usize {
+        self.degree()
+    }
+}
+
+impl<T, U> Gcd for Polynomial<T>
+where T: PseudoDivRem<Output=T, MultType=U> + Gcd + Zero + Clone + Ring + Power,
+      // for<'c> T: MulAssign<&'c T>,
+      for<'c> &'c Polynomial<T>: PseudoDivRem<Output=Polynomial<T>, MultType=T>,
+      // T: Display // Temporary
+{
+    fn gcd(&self, other: &Self) -> Polynomial<T> {
+        let u = self.clone();
+        let v = other.clone();
+        // Algorithm E from Knuth vol 2
+        // TODO: Replace this with algorithm C for efficiency
+        let d = gcd(&u.cont(), &v.cont());
+        let mut u = u.pp();
+        let mut v = v.pp();
+        
+        loop {
+            let pdr = PseudoDivRem::pseudo_divrem(&u, &v);
+            let r = pdr.rem;
+            if r.is_zero() {
+                break v * d;
+            } else if r.degree() == 0 {
+                break Polynomial::from_coefficients(vec![d]);
+            }
+            u = v;
+            v = r.pp();
+        }
+    }
+}
+
+// It should be the case that ua + vb = k*gcd(u, v) for some constant k
+#[derive(Debug, Clone)]
+pub struct ExtendedGcdResult<T> {
+    pub a: Polynomial<T>,
+    pub b: Polynomial<T>,
+    pub gcd: Polynomial<T>,
+}
+
+pub fn extended_gcd<U, T: PseudoDivRem<Output=T, MultType=U>>(mut a: Polynomial<T>, mut b: Polynomial<T>) -> ExtendedGcdResult<T>
+where T: Gcd + Zero + Clone + Ring + Power<Power=u64, Output=T> + One,
+      for<'c> &'c Polynomial<T>: PseudoDivRem<Output=Polynomial<T>, MultType=T>,
+      Polynomial<T>: Gcd,
+      T: AddAssign
+{
+    let mut swapped = false;
+    if a.degree() < b.degree() {
+        swapped = true;
+        std::mem::swap(&mut a, &mut b);
+    }
+
+    let mut r_prev = a;
+    let mut r = b;
+    let mut s_prev: Polynomial<T> = Polynomial::from_coefficients(vec![One::one()]);
+    let mut s: Polynomial<T> = Polynomial::from_coefficients(vec![]);
+    let mut t_prev: Polynomial<T> = Polynomial::from_coefficients(vec![]);
+    let mut t: Polynomial<T> = Polynomial::from_coefficients(vec![One::one()]);
+
+    while r.degree() != 0 {
+        let dr = PseudoDivRem::pseudo_divrem(&r_prev, &r);
+        let q: Polynomial<T> = dr.div;
+        let d: T = r.lc().clone();
+        let e = r_prev.degree() - r.degree() + 1;
+        let new_r = r_prev * d.clone().pow(&(e as u64)) - &q * &r;
+        let new_s = s_prev * d.clone().pow(&(e as u64)) - &q * &s;
+        let new_t = t_prev * d.clone().pow(&(e as u64)) - &q * &t;
+        r_prev = r.clone();
+        r = new_r;
+        s_prev = s.clone();
+        s = new_s;
+        t_prev = t.clone();
+        t = new_t;
+    }
+
+    if swapped {
+        ExtendedGcdResult {
+            a: t,
+            b: s,
+            gcd: r,
+        }
+    } else {
+        ExtendedGcdResult {
+            a: s,
+            b: t,
+            gcd: r,
+        }
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {
@@ -787,5 +894,23 @@ mod tests {
                 assert_eq!(lhs, rhs);
             }
         }
+    }
+
+    #[test]
+    fn test_gcd() {
+        let u = Polynomial::from_coefficients(vec![-5i64, 2, 8, -3, -3, 0, 1, 0, 1]);
+        let v = Polynomial::from_coefficients(vec![21, -9, -4, 0, 5, 0, 3]);
+        let g = gcd(&u, &v);
+        assert!(g.coeffs() == &[1] || g.coeffs() == &[-1]);
+    }
+
+    #[test]
+    fn test_extended_gcd() {
+        // TODO: Turn this into a real test
+        let u = Polynomial::from_coefficients(vec![-3, -3, 0, 1, 0, 1]);
+        let v = Polynomial::from_coefficients(vec![0, 5, 0, 3]);
+        let egcd = extended_gcd(u.clone(), v.clone());
+        dbg!((&u * &egcd.a + &v * &egcd.b).pretty_format("x"));
+        dbg!(egcd);
     }
 }

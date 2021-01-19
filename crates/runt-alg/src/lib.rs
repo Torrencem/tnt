@@ -84,9 +84,15 @@ pub trait EuclideanFunction {
     type Order: std::cmp::Ord;
 
     fn norm(&self) -> Self::Order;
-    fn gcd(&self, other: &Self) -> Self 
-    where Self: DivRem<Output=Self> + Clone + Zero
-    {
+}
+
+pub trait Gcd: EuclideanFunction {
+    fn gcd(&self, other: &Self) -> Self;
+}
+
+impl<T> Gcd for T
+where T: EuclideanFunction + DivRem<Output=T> + Clone + Zero {
+    fn gcd(&self, other: &Self) -> Self {
         let mut a = self.clone();
         let mut b = other.clone();
         while !b.is_zero() {
@@ -98,8 +104,7 @@ pub trait EuclideanFunction {
     }
 }
 
-pub fn gcd<T: EuclideanFunction>(a: &T, b: &T) -> T
-    where T: DivRem<Output=T> + Clone + Zero {
+pub fn gcd<T: Gcd>(a: &T, b: &T) -> T {
     a.gcd(b)
 }
 
