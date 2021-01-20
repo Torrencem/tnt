@@ -721,6 +721,8 @@ impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
 
     fn pseudo_divrem(u: &Polynomial<T>, v: &Polynomial<T>) -> PseudoDivRemResult<Polynomial<T>, T> {
         // Algorithm R from Knuth Vol 2
+        // This has a tendancy to blow up mul and overflow, so there's an alternative algorithm
+        // that does the divison without returning mul
         let m = u.degree();
         let n = v.degree();
         if m < n {
@@ -749,6 +751,30 @@ impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
             rem: Polynomial::from_coefficients(u),
         }
     }
+}
+
+/// Finds the quotient of two polynomials, without returning the remainder. This is the same as
+/// pseudo_divrem, except it doesn't compute mul, which prevents overflows.
+fn poly_div<T: Ring + Power + Clone>(u: &Polynomial<T>, v: &Polynomial<T>) -> Polynomial<T> {
+        // Algorithm R from Knuth Vol 2
+        let m = u.degree();
+        let n = v.degree();
+        if m < n {
+            return Zero::zero();
+        }
+        let mut u = u.coeffs().to_owned();
+        let mut qs = vec![Zero::zero(); m - n + 1];
+        for k in (0..=(m - n)).rev() {
+            qs[k] = &u[n + k] * &v.lc().pow(&(k as u64));
+            for j in (0..=(n + k - 1)).rev() {
+                if j < k {
+                    u[j] = v.lc() * &u[j];
+                } else {
+                    u[j] = &(v.lc() * &u[j]) - &(&u[n + k] * &v.coeffs()[j - k]);
+                }
+            }
+        }
+        Polynomial::from_coefficients(qs)
 }
 
 impl<T> EuclideanFunction for Polynomial<T> {
@@ -800,7 +826,7 @@ pub fn extended_gcd<U, T: PseudoDivRem<Output=T, MultType=U>>(mut a: Polynomial<
 where T: Gcd + Zero + Clone + Ring + Power<Power=u64, Output=T> + One,
       for<'c> &'c Polynomial<T>: PseudoDivRem<Output=Polynomial<T>, MultType=T>,
       Polynomial<T>: Gcd,
-      T: AddAssign
+      T: AddAssign,
 {
     let mut swapped = false;
     if a.degree() < b.degree() {
@@ -816,8 +842,7 @@ where T: Gcd + Zero + Clone + Ring + Power<Power=u64, Output=T> + One,
     let mut t: Polynomial<T> = Polynomial::from_coefficients(vec![One::one()]);
 
     while r.degree() != 0 {
-        let dr = PseudoDivRem::pseudo_divrem(&r_prev, &r);
-        let q: Polynomial<T> = dr.div;
+        let q: Polynomial<T> = poly_div(&r_prev, &r);
         let d: T = r.lc().clone();
         let e = r_prev.degree() - r.degree() + 1;
         let new_r = r_prev * d.clone().pow(&(e as u64)) - &q * &r;
@@ -906,11 +931,30 @@ mod tests {
 
     #[test]
     fn test_extended_gcd() {
-        // TODO: Turn this into a real test
-        let u = Polynomial::from_coefficients(vec![-3, -3, 0, 1, 0, 1]);
-        let v = Polynomial::from_coefficients(vec![0, 5, 0, 3]);
-        let egcd = extended_gcd(u.clone(), v.clone());
-        dbg!((&u * &egcd.a + &v * &egcd.b).pretty_format("x"));
-        dbg!(egcd);
+        for u in &[
+            vec![-3, -3, 0, 1, 1, 1, 3],
+            vec![1, 2, 3, 0, 0, 2, 3, -1],
+            vec![0, 0, 0, 0, 0, 0, 0, 1],
+        ] {
+            for v in &[
+                vec![0, 5, 0, 3],
+                vec![0, 0, 0, 0, 1],
+                vec![-2, -3, 0, 4],
+                vec![1, 1, 1, 1],
+            ] {
+                let u = Polynomial::from_coefficients(u
+                                                      .iter()
+                                                      .cloned()
+                                                      .map(|val| Int::from(val))
+                                                      .collect());
+                let v = Polynomial::from_coefficients(v
+                                                      .iter()
+                                                      .cloned()
+                                                      .map(|val| Int::from(val))
+                                                      .collect());
+                let egcd = extended_gcd(u.clone(), v.clone());
+                assert_eq!(&u * &egcd.a + &v * &egcd.b, egcd.gcd);
+            }
+        }
     }
 }
