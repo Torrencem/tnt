@@ -8,6 +8,7 @@ edition = "2018"
 members = [
     "crates/runt-alg",
     "crates/runt-polynomial",
+    "crates/runt-number-field",
 ]
 
 [dependencies]

@@ -24,6 +24,15 @@ impl<T> Polynomial<T> {
         &self.cs
     }
 
+    pub fn map_coeffs<F>(&mut self, f: F)
+    where F: FnMut(T) -> T,
+          T: Zero {
+        let new_cs = self.cs.drain(..)
+            .map(f)
+            .collect();
+        *self = Polynomial::from_coefficients(new_cs);
+    }
+
     pub fn degree(&self) -> usize {
         self.cs.len().saturating_sub(1)
     }

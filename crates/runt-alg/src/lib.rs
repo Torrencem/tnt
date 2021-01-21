@@ -198,6 +198,10 @@ pub trait PseudoDivRem {
     fn pseudo_divrem(a: Self, b: Self) -> PseudoDivRemResult<Self::Output, Self::MultType>;
 }
 
+pub fn pdiv<U, V, T: PseudoDivRem<Output=U, MultType=V>>(a: T, b: T) -> U {
+    PseudoDivRem::pseudo_divrem(a, b).div
+}
+
 pub trait DivRem {
     type Output;
 
