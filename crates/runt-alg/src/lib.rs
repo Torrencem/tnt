@@ -1,3 +1,9 @@
+//! This crate defines many algebraic traits and trait aliases that are useful for generic
+//! mathematical applications. Most of the marker trait aliases are automatically implemented from
+//! combinations of std traits. In particular, ClosedAddition is implemented for T where all
+//! combinations of T and &T can be added together (in addition to AddAssign), and there are
+//! similar traits for subtraction, multiplication and division.
+
 #![feature(trait_alias)]
 
 use std::ops::*;
@@ -8,10 +14,15 @@ pub use ramp::rational::Rational;
 
 use static_assertions::assert_impl_all;
 
+/// A set whose addition operation is associative. This is a *free trait*.
 pub trait AssociativeAddition {}
+/// A set whose addition operation is commutative. This is a *free trait*.
 pub trait CommutativeAddition {}
+/// A set with an additive identity. This is an alias for the Zero trait, which should be
+/// implemented instead.
 pub trait AdditiveIdentity = Zero;
 
+/// A set whose elements can be added together.
 pub trait ClosedAddition = where
     Self: Sized,
     Self: Add<Self, Output=Self>,
@@ -21,6 +32,7 @@ pub trait ClosedAddition = where
     Self: AddAssign<Self>,
     for<'a> Self: AddAssign<&'a Self>;
 
+/// A set whose elements can be subtracted.
 pub trait ClosedSubtraction = where
     Self: Sized,
     Self: Sub<Self, Output=Self>,
@@ -30,28 +42,44 @@ pub trait ClosedSubtraction = where
     Self: SubAssign<Self>,
     for<'a> Self: SubAssign<&'a Self>;
 
+/// A set whose elements all have additive inverses.
 pub trait AdditiveInverse = where
     Self: Sized,
     Self: ClosedSubtraction,
     Self: Neg<Output=Self>,
     for<'a> &'a Self: Neg<Output=Self>;
 
+/// A set whose elements can be added, with no other restrictions.
 pub trait Magma = ClosedAddition;
+/// A Magma whose addition is associative.
 pub trait Semigroup = AssociativeAddition + Magma;
+/// A Semigroup with an additive identity element.
 pub trait Monoid = Semigroup + AdditiveIdentity;
+/// A Magma with an additive identity element.
 pub trait UnitalMagma = Magma + AdditiveIdentity;
+/// A Monoid whose addition is commutative.
 pub trait CommutativeMonoid = Monoid + CommutativeAddition;
+/// A Monoid where each element has an additive inverse.
 pub trait Group = Monoid + AdditiveInverse;
+/// A Group without associative addition.
 pub trait Loop = Magma + AdditiveIdentity + AdditiveInverse;
+/// A Group whose addition is commutative.
 pub trait AbelianGroup = Group + CommutativeAddition;
 
 // Second operation
 
+/// A set whose multiplication operation is associative. This is a *free trait*
 pub trait AssociativeMultiplication {}
+/// A set whose multiplication operation is commutative. This is a *free trait*
 pub trait CommutativeMultiplication {}
+/// A set with multiplication with the property that for all elements a, b, ab is 0 if and only if
+/// one of a or b was 0.
 pub trait NonZeroProdProperty {}
+/// A set with a multiplicative identity. This is an alias for the One trait, which should be
+/// implemented instead.
 pub trait MultiplicativeIdentity = One;
 
+/// A set whose elements can be multiplied together.
 pub trait ClosedMultiplication = where
     Self: Sized,
     Self: Mul<Self, Output=Self>,
@@ -61,6 +89,8 @@ pub trait ClosedMultiplication = where
     Self: MulAssign<Self>,
     for<'a> Self: MulAssign<&'a Self>;
 
+/// A set whose elements can be divided. This only shows that there is some "division-like
+/// operation" on the set. To guarantee more, see the ExactDivision trait and the DivRem trait.
 pub trait ClosedDivision = where
     Self: Sized,
     Self: Div<Self, Output=Self>,
@@ -70,22 +100,40 @@ pub trait ClosedDivision = where
     Self: DivAssign<Self>,
     for<'a> Self: DivAssign<&'a Self>;
 
+/// A set whose elements can be divided exactly, so that for all elements a and b, (a / b) * b ==
+/// a. Note that this specifically is not how integer division works, for example. Hence, integer
+/// types implement ClosedDivision, but not ExactDivision.
 pub trait ExactDivision {}
 
+/// A set that is a commutative monoid additively, with an associative multiplication operation.
 pub trait Semiring = CommutativeMonoid + ClosedMultiplication + AssociativeMultiplication;
+/// An additive group with a multiplication operation defined on it that isn't necessarily
+/// multiplicatively associative.
 pub trait NonassociativeRing = AbelianGroup + ClosedMultiplication;
+/// A NonassociativeRing whose multiplication is associative.
 pub trait Rng = NonassociativeRing + AssociativeMultiplication;
+/// A Rng with a multiplicative identity.
 pub trait Ring = Rng + MultiplicativeIdentity;
+/// A Ring whose multiplication operation is commutative.
 pub trait CommutativeRing = Ring + CommutativeMultiplication;
+/// A CommutativeRing with the non zero product property; that is, for all elements a and b, a*b is
+/// 0 if and only if one of a or b is zero.
 pub trait IntegralDomain = CommutativeRing + NonZeroProdProperty;
+/// An integral domain whose elements all have multiplicative inverses (so that exact division can
+/// be defined).
 pub trait Field = IntegralDomain + ClosedDivision + ExactDivision;
 
+/// A set on which a Euclidean Function is defined. A Euclidean Function is a norm that can be used
+/// to write a Euclidean algorithm for computing GCD's. This trait is useful for getting a
+/// free implementation of GCD for integer-like types.
 pub trait EuclideanFunction {
     type Order: std::cmp::Ord;
 
     fn norm(&self) -> Self::Order;
 }
 
+/// A set which has a GCD function. For integer types, this is automatically implemented if a
+/// Euclidean function and a DivRem function are defined.
 pub trait Gcd: EuclideanFunction {
     fn gcd(&self, other: &Self) -> Self;
 }
@@ -104,10 +152,12 @@ where T: EuclideanFunction + DivRem<Output=T> + Clone + Zero {
     }
 }
 
+/// A convenience function for computing the GCD of two things that implement the Gcd trait.
 pub fn gcd<T: Gcd>(a: &T, b: &T) -> T {
     a.gcd(b)
 }
 
+/// An Integral domain with a Euclidean function defined on it.
 pub trait EuclideanDomain = EuclideanFunction + IntegralDomain;
 
 // Implement our traits for integral types
@@ -178,12 +228,14 @@ assert_impl_all!(Rational: Field, EuclideanFunction);
 
 // DivRem
 
+/// Returned from the divrem function
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DivRemResult<T> {
     pub div: T,
     pub rem: T,
 }
 
+/// Returned from the pseudo_divrem function
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PseudoDivRemResult<T, U> {
     pub mul: U,
@@ -194,10 +246,17 @@ pub struct PseudoDivRemResult<T, U> {
 pub trait PseudoDivRem {
     type Output;
     type MultType;
-
+    
+    /// Given two elements a and b, pseudo_divrem(a, b) computes values m, d, and r, such that
+    /// ma = bd + r. This is a "pseudo-division" of a by b. It's possible to constrain m to be
+    /// some other type of value. In particular, pseudo_divrem(a, b).mul is m, pseudo_divrem(a,
+    /// b).div is d, and pseudo_divrem(a, b).rem is r. For Polynomials, this is useful for asserting
+    /// that m is a constant polynomial.
     fn pseudo_divrem(a: Self, b: Self) -> PseudoDivRemResult<Self::Output, Self::MultType>;
 }
 
+/// A convenience function for performing exact division when possible. If you have two elements a
+/// and b such that a = b*k, pdiv(b, a) should always return k.
 pub fn pdiv<U, V, T: PseudoDivRem<Output=U, MultType=V>>(a: T, b: T) -> U {
     PseudoDivRem::pseudo_divrem(a, b).div
 }
@@ -205,6 +264,8 @@ pub fn pdiv<U, V, T: PseudoDivRem<Output=U, MultType=V>>(a: T, b: T) -> U {
 pub trait DivRem {
     type Output;
 
+    /// Given two elements a and b, divrem(a, b) computes values d and r such that a = b*d + r. In
+    /// particular, divrem(a, b).div is d, and divrem(a, b).rem is r.
     fn divrem(a: Self, b: Self) -> DivRemResult<Self::Output>;
 }
 
@@ -243,6 +304,9 @@ assert_impl_all!(&Int: DivRem);
 
 // Multiplicative Exponentiation
 
+/// A set whose elements can be taken to powers. As long as MulAssign, Mul, One and Clone are
+/// defined for a type, Power will be automatically implemented with an exponentiation by squaring
+/// algorithm.
 pub trait Power {
     type Power;
     type Output;
@@ -262,7 +326,7 @@ where for<'a> V: MulAssign<&'a V>
         let mut res: V = One::one();
         let mut e = *val;
 
-        // Unrolled first iteration
+        // Unrolled first iteration so that V and T work out.
         if e & 1 == 1 {
             res *= self.clone();
         }

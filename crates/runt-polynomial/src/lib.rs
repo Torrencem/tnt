@@ -8,6 +8,7 @@ use std::cmp::max;
 use std::borrow::Cow;
 use runt_alg::*;
 
+/// A polynomial with coefficients in some type T.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Polynomial<T> {
     // Coefficients of the polynomial, in order from lowest power of x to highest. Invariant:
@@ -17,14 +18,13 @@ pub struct Polynomial<T> {
 }
 
 impl<T> Polynomial<T> {
-    pub fn new() -> Self {
-        Polynomial { cs: vec![] }
-    }
-
+    /// Returns a reference to the coefficients of the polynomial. The i-th index of this slice is
+    /// the coefficient on x^i.
     pub fn coeffs(&self) -> &[T] {
         &self.cs
     }
 
+    /// Apply a function to each of the coefficients of the polynomial.
     pub fn map_coeffs<F>(&mut self, f: F)
     where F: FnMut(T) -> T,
           T: Zero {
@@ -34,13 +34,26 @@ impl<T> Polynomial<T> {
         *self = Polynomial::from_coefficients(new_cs);
     }
 
+    /// Apply a function to each of the coefficients of the polynomial. This also passes the index
+    /// of the coefficient to the function (the index is the same as the exponent on x).
+    pub fn map_enumerate_coeffs<F>(&mut self, mut f: F)
+    where F: FnMut(usize, T) -> T,
+          T: Zero {
+        let new_cs = self.cs.drain(..)
+            .enumerate()
+            .map(|(i, c)| f(i, c))
+            .collect();
+        *self = Polynomial::from_coefficients(new_cs);
+    }
+
+    /// Get the degree of the polynomial.
     pub fn degree(&self) -> usize {
         self.cs.len().saturating_sub(1)
     }
 
-    /// Get the leading coefficient of this polynomial. Note that this returns either a reference
+    /// Get the leading coefficient of the polynomial. Note that this returns either a reference
     /// to the leading coefficient, or an owned zero value if this polynomial is zero, so you will
-    /// need to call .into_owned() to get a T or .as_ref() to get a &T.
+    /// need to call .lc().into_owned() to get a T or .lc().as_ref() to get a &T.
     pub fn lc<'a>(&'a self) -> Cow<'a, T> 
     where T: Clone + Zero
     {
@@ -51,6 +64,7 @@ impl<T> Polynomial<T> {
         }
     }
 
+    /// Get the content of the polynomial. The content is the gcd of all of the coefficients.
     pub fn cont(&self) -> T
     where T: Gcd + Zero + Clone {
         self.cs.iter()
@@ -61,13 +75,15 @@ impl<T> Polynomial<T> {
             .unwrap_or_else(|| Zero::zero())
     }
 
+    /// Reduce the coefficients of the polynomial by the polynomial's content. Given a polynomial
+    /// p(x), this computes p(x) / cont(p(x)).
     pub fn pp<U>(&self) -> Polynomial<T>
     where T: Gcd + Zero + Clone + PseudoDivRem<Output=T, MultType=U>
     {
         let c = self.cont();
         let mut p = self.clone();
         for coeff in p.cs.iter_mut() {
-            let val = PseudoDivRem::pseudo_divrem(coeff.clone(), c.clone()).div;
+            let val = pdiv(coeff.clone(), c.clone());
             *coeff = val;
         }
         p
@@ -75,6 +91,8 @@ impl<T> Polynomial<T> {
 }
 
 impl<T: Zero> Polynomial<T> {
+    /// Create a new polynomial from a Vec of coefficients. In the vec, index i should be the
+    /// coefficient on x^i.
     pub fn from_coefficients(mut coefficients: Vec<T>) -> Self {
         if coefficients.is_empty() {
             return Polynomial { cs: vec![] };
@@ -98,7 +116,7 @@ impl<T: Zero> Polynomial<T> {
         }
     }
 
-    pub fn fix_coefficients(&mut self) {
+    pub(crate) fn fix_coefficients(&mut self) {
         if self.cs.len() == 0 {
             return;
         }
@@ -122,33 +140,12 @@ use std::fmt::Display;
 
 impl<T: Display> Polynomial<T> {
     pub fn format<X: Display>(&self, var: X) -> String {
+        // TODO: This function could be a lot smarter. It could even use specialization to print
+        // things better with One and Zero etc.
         let mut res = String::new();
 
         for (index, coeff) in self.cs.iter().rev().enumerate() {
             let exponent = self.cs.len() - 1 - index;
-            
-            if exponent == 0 {
-                write!(res, " + {}", coeff).unwrap();
-            } else if index == 0 {
-                write!(res, "{}{}^{}", coeff, var, exponent).unwrap();
-            } else {
-                write!(res, " + {}{}^{}", coeff, var, exponent).unwrap();
-            }
-        }
-
-        return res;
-    }
-
-    pub fn pretty_format<X: Display>(&self, var: X) -> String
-    where T: Zero {
-        let mut res = String::new();
-
-        for (index, coeff) in self.cs.iter().rev().enumerate() {
-            let exponent = self.cs.len() - 1 - index;
-
-            if coeff.is_zero() {
-                continue;
-            }
             
             if exponent == 0 {
                 write!(res, " + {}", coeff).unwrap();
@@ -164,6 +161,7 @@ impl<T: Display> Polynomial<T> {
 }
 
 impl<T> Polynomial<T> {
+    /// Evaluate the polynomial at a specific value.
     pub fn eval(&self, val: &T) -> T
     where
         T: for<'a> AddAssign<&'a T>,
@@ -884,7 +882,7 @@ impl<'a, T: Ring + Power<Power=u64, Output=T> + Clone> PseudoDivRem for &'a Poly
 }
 
 /// Finds the quotient of two polynomials, without returning the remainder. This is the same as
-/// pseudo_divrem, except it doesn't compute mul, which prevents overflows.
+/// pseudo_divrem, except it doesn't compute mul, which prevents overflows sometimes.
 fn poly_div<T: Ring + Power<Power=u64, Output=T> + Clone>(u: &Polynomial<T>, v: &Polynomial<T>) -> Polynomial<T> {
         // Algorithm R from Knuth Vol 2
         let m = u.degree();
@@ -917,9 +915,7 @@ impl<T> EuclideanFunction for Polynomial<T> {
 
 impl<T, U> Gcd for Polynomial<T>
 where T: PseudoDivRem<Output=T, MultType=U> + Gcd + Zero + Clone + Ring + Power,
-      // for<'c> T: MulAssign<&'c T>,
       for<'c> &'c Polynomial<T>: PseudoDivRem<Output=Polynomial<T>, MultType=T>,
-      // T: Display // Temporary
 {
     fn gcd(&self, other: &Self) -> Polynomial<T> {
         let u = self.clone();
@@ -944,7 +940,6 @@ where T: PseudoDivRem<Output=T, MultType=U> + Gcd + Zero + Clone + Ring + Power,
     }
 }
 
-// It should be the case that ua + vb = k*gcd(u, v) for some constant k
 #[derive(Debug, Clone)]
 pub struct ExtendedGcdResult<T> {
     pub a: Polynomial<T>,

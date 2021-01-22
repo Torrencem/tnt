@@ -1,3 +1,6 @@
+//! This module defines the AlgebraicNumber type. Note: Be slightly careful using the One and Zero
+//! trait implementations of AlgebraicNumber, since they're pretty ill-defined. See the code for
+//! more details.
 
 // Right now, this module doesn't use the r_i trick described on page 159-160 of the course book
 // for multiplication, and so it could serve to be a little more time efficient.
@@ -17,11 +20,8 @@ pub mod raw {
     use super::*;
     use std::ops::*;
 
-    /// An element of a number field isomorphic to Q[x]/<*modulus>
-    /// This struct is generic over the way to references the modulus. You could, for example, use
-    /// AlgebraicNumberR<T, Arc<Polynomial<T>>> to keep track of a shared reference to a
-    /// polynomial, or use AlgebraicNumberR<T, &'a Polynomial<T>> if you're able to bound the
-    /// lifetime of the modulus for efficiency.
+    /// An element of a number field isomorphic to Q\[x\]/<*modulus>
+    /// This struct is generic over the way to references the modulus.
     #[derive(Clone, Debug)]
     pub struct AlgebraicNumberR<T, R> 
     where T: Ring + Gcd + PartialEq,
@@ -58,7 +58,7 @@ pub mod raw {
             }.reduction()
         }
 
-        pub fn reduce(&mut self) {
+        pub(crate) fn reduce(&mut self) {
             let common_factor: T = gcd(&self.value.cont(), &self.denom);
             if common_factor.is_one() {
                 return;
@@ -67,7 +67,7 @@ pub mod raw {
             self.denom = pdiv(self.denom.clone(), common_factor);
         }
 
-        pub fn reduction(mut self) -> Self {
+        pub(crate) fn reduction(mut self) -> Self {
             self.reduce();
             self
         }
@@ -677,6 +677,8 @@ pub mod raw {
     }
 }
 
+/// An element of a number field isomorphic to Q\[x\]/<*modulus>. See [raw::AlgebraicNumberR] for
+/// more impls
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
 
 impl<T, U> AlgebraicNumber<T>
