@@ -5,6 +5,7 @@ use num_traits::{Zero, One};
 use std::fmt::Write;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, MulAssign, SubAssign, DivAssign};
 use std::cmp::max;
+use std::borrow::Cow;
 use runt_alg::*;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -37,11 +38,17 @@ impl<T> Polynomial<T> {
         self.cs.len().saturating_sub(1)
     }
 
-    // TODO: This shouldn't panic when self.cs == vec![]. The fix might be changing this to return
-    // T instead of &T (or Cow). The problem is changing to T seems to break something, and it's
-    // hard to figure out what exactly.
-    pub fn lc(&self) -> &T {
-        &self.cs[self.cs.len() - 1]
+    /// Get the leading coefficient of this polynomial. Note that this returns either a reference
+    /// to the leading coefficient, or an owned zero value if this polynomial is zero, so you will
+    /// need to call .into_owned() to get a T or .as_ref() to get a &T.
+    pub fn lc<'a>(&'a self) -> Cow<'a, T> 
+    where T: Clone + Zero
+    {
+        if self.cs.len() == 0 {
+            Cow::Owned(Zero::zero())
+        } else {
+            Cow::Borrowed(&self.cs[self.cs.len() - 1])
+        }
     }
 
     pub fn cont(&self) -> T
@@ -727,7 +734,7 @@ impl<T: AssociativeMultiplication + CommutativeAddition + AssociativeAddition> A
 impl<T: CommutativeMultiplication + CommutativeAddition + AssociativeAddition> CommutativeMultiplication for Polynomial<T> {}
 impl<T: NonZeroProdProperty> NonZeroProdProperty for Polynomial<T> {}
 
-impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
+impl<'a, T: Ring + Power<Power=u64, Output=T> + Clone> PseudoDivRem for &'a Polynomial<T> {
     type Output = Polynomial<T>;
     type MultType = T;
 
@@ -747,18 +754,18 @@ impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
         let mut u = u.coeffs().to_owned();
         let mut qs = vec![Zero::zero(); m - n + 1];
         for k in (0..=(m - n)).rev() {
-            qs[k] = &u[n + k] * &v.lc().pow(&(k as u64));
+            qs[k] = &u[n + k] * &v.lc().into_owned().pow(&(k as u64));
             for j in (0..=(n + k - 1)).rev() {
                 if j < k {
-                    u[j] = v.lc() * &u[j];
+                    u[j] = v.lc().as_ref() * &u[j];
                 } else {
-                    u[j] = &(v.lc() * &u[j]) - &(&u[n + k] * &v.coeffs()[j - k]);
+                    u[j] = &(v.lc().as_ref() * &u[j]) - &(&u[n + k] * &v.coeffs()[j - k]);
                 }
             }
         }
         u.truncate(n);
         PseudoDivRemResult {
-            mul: v.lc().pow(&((m - n + 1) as u64)),
+            mul: v.lc().into_owned().pow(&((m - n + 1) as u64)),
             div: Polynomial::from_coefficients(qs),
             rem: Polynomial::from_coefficients(u),
         }
@@ -767,7 +774,7 @@ impl<'a, T: Ring + Power + Clone> PseudoDivRem for &'a Polynomial<T> {
 
 /// Finds the quotient of two polynomials, without returning the remainder. This is the same as
 /// pseudo_divrem, except it doesn't compute mul, which prevents overflows.
-fn poly_div<T: Ring + Power + Clone>(u: &Polynomial<T>, v: &Polynomial<T>) -> Polynomial<T> {
+fn poly_div<T: Ring + Power<Power=u64, Output=T> + Clone>(u: &Polynomial<T>, v: &Polynomial<T>) -> Polynomial<T> {
         // Algorithm R from Knuth Vol 2
         let m = u.degree();
         let n = v.degree();
@@ -777,12 +784,12 @@ fn poly_div<T: Ring + Power + Clone>(u: &Polynomial<T>, v: &Polynomial<T>) -> Po
         let mut u = u.coeffs().to_owned();
         let mut qs = vec![Zero::zero(); m - n + 1];
         for k in (0..=(m - n)).rev() {
-            qs[k] = &u[n + k] * &v.lc().pow(&(k as u64));
+            qs[k] = &u[n + k] * &v.lc().into_owned().pow(&(k as u64));
             for j in (0..=(n + k - 1)).rev() {
                 if j < k {
-                    u[j] = v.lc() * &u[j];
+                    u[j] = v.lc().as_ref() * &u[j];
                 } else {
-                    u[j] = &(v.lc() * &u[j]) - &(&u[n + k] * &v.coeffs()[j - k]);
+                    u[j] = &(v.lc().as_ref() * &u[j]) - &(&u[n + k] * &v.coeffs()[j - k]);
                 }
             }
         }
@@ -855,7 +862,7 @@ where T: Gcd + Zero + Clone + Ring + Power<Power=u64, Output=T> + One,
 
     while r.degree() != 0 {
         let q: Polynomial<T> = poly_div(&r_prev, &r);
-        let d: T = r.lc().clone();
+        let d: T = r.lc().into_owned();
         let e = r_prev.degree() - r.degree() + 1;
         let new_r = r_prev * d.clone().pow(&(e as u64)) - &q * &r;
         let new_s = s_prev * d.clone().pow(&(e as u64)) - &q * &s;
