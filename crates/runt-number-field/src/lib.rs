@@ -1,11 +1,15 @@
 
 // Right now, this module doesn't use the r_i trick described on page 159-160 of the course book
 // for multiplication, and so it could serve to be a little more time efficient.
+// NOTE: Be careful using One::one() and Zero::zero(), since they are pretty ill-defined (no
+// modulus). If you know what modulus you want you should be using that to avoid logic errors
 
 use runt_polynomial::*;
 use runt_alg::*;
 use std::ops::Deref;
 use std::sync::Arc;
+
+use static_assertions::assert_impl_all;
 
 /// A module containing the raw types that are generic over the container of their reference to
 /// their fields.
@@ -21,16 +25,18 @@ pub mod raw {
     #[derive(Clone, Debug)]
     pub struct AlgebraicNumberR<T, R> 
     where T: Ring + Gcd + PartialEq,
-          R: Deref<Target=Polynomial<T>> + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
     {
         pub(crate) value: Polynomial<T>,
         pub(crate) denom: T,
+        // This value is 0 if this AlgebraicNumberR was generated from the One or Zero traits. If
+        // that's the case, traits will use the "more defined" moduli in operations.
         pub(crate) modulus: R,
     }
 
     impl<T, R> PartialEq for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PartialEq,
-          R: Deref<Target=Polynomial<T>> + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
     {
         fn eq(&self, other: &Self) -> bool {
             self.value == other.value && self.denom == other.denom
@@ -39,14 +45,12 @@ pub mod raw {
 
     impl<T, R> Eq for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PartialEq,
-          R: Deref<Target=Polynomial<T>> + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
     { }
-
-    // TODO: multiplicative inverse, Div impls
 
     impl<T, R, U> AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
     {
         pub fn new_raw(value: Polynomial<T>, denom: T, modulus: R) -> Self {
             AlgebraicNumberR {
@@ -69,6 +73,7 @@ pub mod raw {
         }
 
         pub fn mul_inverse(&self) -> Self {
+            debug_assert!(!self.modulus.is_zero());
             // Compute B inverse mod T according to the method described on page 160
 
             let egcd = extended_gcd(self.value.clone(), Polynomial::clone(&*self.modulus));
@@ -84,10 +89,11 @@ pub mod raw {
     
     impl<'a, 'b, T, R, U> Add<&'b AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn add(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            let modulus = if self.modulus.is_zero() { &other.modulus } else { &self.modulus };
             // New denominator will be the lcm of the old denominators
             let new_denom = pdiv(&self.denom * &other.denom, gcd(&self.denom, &other.denom));
             let my_new_value = &self.value * &pdiv(new_denom.clone(), self.denom.clone());
@@ -96,7 +102,7 @@ pub mod raw {
             AlgebraicNumberR {
                 value: new_value,
                 denom: new_denom,
-                modulus: self.modulus.clone(),
+                modulus: modulus.clone(),
             }.reduction()
         }
     }
@@ -105,7 +111,7 @@ pub mod raw {
 
     impl<'a, T, R, U> Add<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn add(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -115,7 +121,7 @@ pub mod raw {
 
     impl<'a, T, R, U> Add<AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn add(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -125,11 +131,27 @@ pub mod raw {
     
     impl<T, R, U> Add<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn add(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
             &self + &other
+        }
+    }
+
+    impl<T, R, U> AddAssign<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn add_assign(&mut self, other: Self) {
+            *self = &*self + other;
+        }
+    }
+
+    impl<'a, T, R, U> AddAssign<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn add_assign(&mut self, other: &Self) {
+            *self = &*self + other;
         }
     }
     
@@ -137,10 +159,11 @@ pub mod raw {
 
     impl<'a, 'b, T, R, U> Sub<&'b AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn sub(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            let modulus = if self.modulus.is_zero() { &other.modulus } else { &self.modulus };
             // New denominator will be the lcm of the old denominators
             let new_denom = pdiv(&self.denom * &other.denom, gcd(&self.denom, &other.denom));
             let my_new_value = &self.value * &pdiv(new_denom.clone(), self.denom.clone());
@@ -149,7 +172,7 @@ pub mod raw {
             AlgebraicNumberR {
                 value: new_value,
                 denom: new_denom,
-                modulus: self.modulus.clone(),
+                modulus: modulus.clone(),
             }.reduction()
         }
     }
@@ -158,7 +181,7 @@ pub mod raw {
 
     impl<'a, T, R, U> Sub<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn sub(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -168,7 +191,7 @@ pub mod raw {
 
     impl<'a, T, R, U> Sub<AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn sub(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -178,11 +201,27 @@ pub mod raw {
     
     impl<T, R, U> Sub<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn sub(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
             &self - &other
+        }
+    }
+
+    impl<T, R, U> SubAssign<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn sub_assign(&mut self, other: Self) {
+            *self = &*self - other;
+        }
+    }
+
+    impl<'a, T, R, U> SubAssign<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn sub_assign(&mut self, other: &Self) {
+            *self = &*self - other;
         }
     }
     
@@ -190,15 +229,16 @@ pub mod raw {
 
     impl<'a, 'b, T, R, U> Mul<&'b AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn mul(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            let modulus = if self.modulus.is_zero() { &other.modulus } else { &self.modulus };
             let prod = &self.value * &other.value;
             AlgebraicNumberR {
                 value: PseudoDivRem::pseudo_divrem(&prod, &*self.modulus).rem,
                 denom: &self.denom * &other.denom,
-                modulus: self.modulus.clone(),
+                modulus: modulus.clone(),
             }.reduction()
         }
     }
@@ -207,7 +247,7 @@ pub mod raw {
 
     impl<'a, T, R, U> Mul<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn mul(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -217,7 +257,7 @@ pub mod raw {
 
     impl<'a, T, R, U> Mul<AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn mul(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -227,7 +267,7 @@ pub mod raw {
     
     impl<T, R, U> Mul<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn mul(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -235,11 +275,27 @@ pub mod raw {
         }
     }
 
+    impl<T, R, U> MulAssign<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn mul_assign(&mut self, other: Self) {
+            *self = &*self * other;
+        }
+    }
+
+    impl<'a, T, R, U> MulAssign<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn mul_assign(&mut self, other: &Self) {
+            *self = &*self * other;
+        }
+    }
+
     // Multiplicative Inverse implementation
 
     impl<'a, 'b, T, R, U> Div<&'a AlgebraicNumberR<T, R>> for &'b AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn div(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -249,7 +305,7 @@ pub mod raw {
     
     impl<'b, T, R, U> Div<AlgebraicNumberR<T, R>> for &'b AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn div(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -259,7 +315,7 @@ pub mod raw {
     
     impl<'a, T, R, U> Div<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn div(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -269,7 +325,7 @@ pub mod raw {
     
     impl<T, R, U> Div<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
-          R: Deref<Target=Polynomial<T>> + Clone {
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
         type Output = AlgebraicNumberR<T, R>;
 
         fn div(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
@@ -277,7 +333,94 @@ pub mod raw {
         }
     }
 
-    // TODO Add *Assign traits, add traits from runt-alg
+    impl<T, R, U> DivAssign<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn div_assign(&mut self, other: Self) {
+            *self = &*self + other;
+        }
+    }
+
+    impl<'a, T, R, U> DivAssign<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn div_assign(&mut self, other: &Self) {
+            *self = &*self + other;
+        }
+    }
+
+    macro_rules! impl_with_bounds {
+        ($trait:ident) => {
+            impl<T, R, U> $trait for AlgebraicNumberR<T, R>
+            where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+                  R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone { }
+        };
+    }
+
+    impl_with_bounds!(AssociativeAddition);
+    impl_with_bounds!(CommutativeAddition);
+    impl_with_bounds!(AssociativeMultiplication);
+    impl_with_bounds!(CommutativeMultiplication);
+    impl_with_bounds!(NonZeroProdProperty);
+    impl_with_bounds!(ExactDivision);
+
+    // Neg traits
+    impl<'a, T, R, U> Neg for &'a AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn neg(self) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value = -this.value;
+            this
+        }
+    }
+    
+    impl<T, R, U> Neg for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn neg(mut self) -> AlgebraicNumberR<T, R> {
+            self.value = -self.value;
+            self
+        }
+    }
+
+    // Zero and One traits. These cheat by using the zero polynomial for modulus.
+
+    impl<T, R, U> Zero for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn zero() -> Self {
+            AlgebraicNumberR {
+                value: Zero::zero(),
+                denom: One::one(),
+                modulus: R::from(Zero::zero()),
+            }
+        }
+
+        fn is_zero(&self) -> bool {
+            self.value.is_zero()
+        }
+    }
+    
+    impl<T, R, U> One for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn one() -> Self {
+            AlgebraicNumberR {
+                value: One::one(),
+                denom: One::one(),
+                modulus: R::from(Zero::zero()),
+            }
+        }
+
+        fn is_one(&self) -> bool {
+            self.value.is_one()
+        }
+    }
 }
 
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
@@ -296,7 +439,8 @@ where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone {
     }
 }
 
-// TODO: Complete this module, add test cases
+assert_impl_all!(AlgebraicNumber<i32>: Field);
+assert_impl_all!(AlgebraicNumber<Int>: Field);
 
 #[cfg(test)]
 mod tests {
