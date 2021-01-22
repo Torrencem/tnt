@@ -276,6 +276,8 @@ pub mod raw {
             self * other.mul_inverse()
         }
     }
+
+    // TODO Add *Assign traits, add traits from runt-alg
 }
 
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
