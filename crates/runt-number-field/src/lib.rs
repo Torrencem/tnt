@@ -422,7 +422,259 @@ pub mod raw {
         }
     }
 
-    // TODO: Allow multiplication by scalars impls
+    // Scalar value operations
+
+    impl<T, R, U> Add<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn add(mut self, other: T) -> AlgebraicNumberR<T, R> {
+            self.value += other;
+            self
+        }
+    }
+
+    impl<'a, T, R, U> Add<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn add(mut self, other: &T) -> AlgebraicNumberR<T, R> {
+            self.value += other;
+            self
+        }
+    }
+
+    impl<'b, T, R, U> Add<T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn add(self, other: T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value += other;
+            this
+        }
+    }
+
+    impl<'a, 'b, T, R, U> Add<&'a T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn add(self, other: &T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value += other;
+            this
+        }
+    }
+    
+    impl<T, R, U> Sub<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn sub(mut self, other: T) -> AlgebraicNumberR<T, R> {
+            self.value -= other;
+            self
+        }
+    }
+
+    impl<'a, T, R, U> Sub<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn sub(mut self, other: &T) -> AlgebraicNumberR<T, R> {
+            self.value -= other;
+            self
+        }
+    }
+
+    impl<'b, T, R, U> Sub<T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn sub(self, other: T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value -= other;
+            this
+        }
+    }
+
+    impl<'a, 'b, T, R, U> Sub<&'a T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn sub(self, other: &T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value -= other;
+            this
+        }
+    }
+    
+    impl<T, R, U> Mul<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn mul(mut self, other: T) -> AlgebraicNumberR<T, R> {
+            self.value *= other;
+            self
+        }
+    }
+
+    impl<'a, T, R, U> Mul<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn mul(mut self, other: &T) -> AlgebraicNumberR<T, R> {
+            self.value *= other;
+            self
+        }
+    }
+
+    impl<'b, T, R, U> Mul<T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn mul(self, other: T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value *= other;
+            this
+        }
+    }
+
+    impl<'a, 'b, T, R, U> Mul<&'a T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn mul(self, other: &T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.value *= other;
+            this
+        }
+    }
+    
+    impl<T, R, U> Div<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(mut self, other: T) -> AlgebraicNumberR<T, R> {
+            self.denom *= other;
+            self.reduction()
+        }
+    }
+
+    impl<'a, T, R, U> Div<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(mut self, other: &T) -> AlgebraicNumberR<T, R> {
+            self.denom *= other;
+            self.reduction()
+        }
+    }
+
+    impl<'b, T, R, U> Div<T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(self, other: T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.denom *= other;
+            this.reduction()
+        }
+    }
+
+    impl<'a, 'b, T, R, U> Div<&'a T> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(self, other: &T) -> AlgebraicNumberR<T, R> {
+            let mut this = self.clone();
+            this.denom *= other;
+            this.reduction()
+        }
+    }
+
+    // *Assign traits for scalars
+    
+    impl<T, R, U> AddAssign<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn add_assign(&mut self, other: T) {
+            self.value += other;
+        }
+    }
+
+    impl<'a, T, R, U> AddAssign<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn add_assign(&mut self, other: &T) {
+            self.value += other;
+        }
+    }
+    
+    impl<T, R, U> SubAssign<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn sub_assign(&mut self, other: T) {
+            self.value -= other;
+        }
+    }
+
+    impl<'a, T, R, U> SubAssign<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn sub_assign(&mut self, other: &T) {
+            self.value -= other;
+        }
+    }
+    
+    impl<T, R, U> MulAssign<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn mul_assign(&mut self, other: T) {
+            self.value *= other;
+        }
+    }
+
+    impl<'a, T, R, U> MulAssign<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn mul_assign(&mut self, other: &T) {
+            self.value *= other;
+        }
+    }
+    
+    impl<T, R, U> DivAssign<T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn div_assign(&mut self, other: T) {
+            self.denom *= other;
+            self.reduce()
+        }
+    }
+
+    impl<'a, T, R, U> DivAssign<&'a T> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone {
+        fn div_assign(&mut self, other: &T) {
+            self.denom *= other;
+            self.reduce()
+        }
+    }
 }
 
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
@@ -513,6 +765,7 @@ mod tests {
 
 
         assert!(((&val).pow(&5) - &val * &val10 + &val2).is_zero());
+        assert!(((&val).pow(&5) - &val * Int::from(10) + Int::from(2)).is_zero());
 
     }
 }

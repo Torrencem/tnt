@@ -97,6 +97,25 @@ impl<T: Zero> Polynomial<T> {
             cs: coefficients
         }
     }
+
+    pub fn fix_coefficients(&mut self) {
+        if self.cs.len() == 0 {
+            return;
+        }
+        let mut i = self.cs.len() - 1;
+        loop {
+            if self.cs[i].is_zero() {
+                self.cs.pop();
+            } else {
+                break;
+            }
+            if i == 0 {
+                break;
+            } else {
+                i -= 1;
+            }
+        }
+    }
 }
 
 use std::fmt::Display;
@@ -464,6 +483,7 @@ impl<T: Clone + Zero> AddAssign for Polynomial<T>
 where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
     fn add_assign(&mut self, other: Self) {
         *self = &*self + &other;
+        self.fix_coefficients();
     }
 }
 
@@ -471,6 +491,7 @@ impl<'a, T: Clone + Zero> AddAssign<&'a Polynomial<T>> for Polynomial<T>
 where for<'c, 'd> &'c T: Add<&'d T, Output=T> {
     fn add_assign(&mut self, other: &Self) {
         *self = &*self + other;
+        self.fix_coefficients();
     }
 }
 
@@ -478,6 +499,7 @@ impl<T: Clone + Neg<Output=T> + Zero> SubAssign for Polynomial<T>
 where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     fn sub_assign(&mut self, other: Self) {
         *self = &*self - &other;
+        self.fix_coefficients();
     }
 }
 
@@ -485,6 +507,7 @@ impl<'a, T: Clone + Neg<Output=T> + Zero> SubAssign<&'a Polynomial<T>> for Polyn
 where for<'c, 'd> &'c T: Sub<&'d T, Output=T> {
     fn sub_assign(&mut self, other: &Self) {
         *self = &*self - &other;
+        self.fix_coefficients();
     }
 }
 
@@ -505,90 +528,130 @@ where for<'c, 'd> &'c T: Mul<&'d T, Output=T> {
 // Traits for Polynomial<T> and T
 
 impl<T> Add<T> for Polynomial<T>
-where T: AddAssign {
+where T: AddAssign + Zero {
     type Output = Polynomial<T>;
 
     fn add(mut self, other: T) -> Self {
         self.cs[0] += other;
+        self.fix_coefficients();
         self
     }
 }
 
-impl<'a, T> Add<&'a T> for Polynomial<T>
+impl<'a, T: Zero> Add<&'a T> for Polynomial<T>
 where for<'b> T: AddAssign<&'b T> {
     type Output = Polynomial<T>;
 
     fn add(mut self, other: &T) -> Self {
         self.cs[0] += other;
+        self.fix_coefficients();
         self
     }
 }
 
+impl<T> AddAssign<T> for Polynomial<T>
+where T: AddAssign + Zero {
+    fn add_assign(&mut self, other: T) {
+        self.cs[0] += other;
+        self.fix_coefficients();
+    }
+}
+
+impl<'a, T: Zero> AddAssign<&'a T> for Polynomial<T>
+where for<'b> T: AddAssign<&'b T> {
+    fn add_assign(&mut self, other: &T) {
+        self.cs[0] += other;
+        self.fix_coefficients();
+    }
+}
+
 impl<'a, T: Clone> Add<T> for &'a Polynomial<T>
-where T: AddAssign<T> {
+where T: AddAssign<T> + Zero {
     type Output = Polynomial<T>;
 
     fn add(self, other: T) -> Polynomial<T> {
         let mut p = self.clone();
         p.cs[0] += other;
+        p.fix_coefficients();
         p
     }
 }
 
-impl<'a, 'b, T: Clone> Add<&'a T> for &'b Polynomial<T>
+impl<'a, 'b, T: Clone + Zero> Add<&'a T> for &'b Polynomial<T>
 where for<'c> T: AddAssign<&'c T> {
     type Output = Polynomial<T>;
 
     fn add(self, other: &T) -> Polynomial<T> {
         let mut p = self.clone();
         p.cs[0] += other;
+        p.fix_coefficients();
         p
     }
 }
 
 impl<T> Sub<T> for Polynomial<T>
-where T: SubAssign {
+where T: SubAssign + Zero {
     type Output = Polynomial<T>;
 
     fn sub(mut self, other: T) -> Self {
         self.cs[0] -= other;
+        self.fix_coefficients();
         self
     }
 }
 
-impl<'a, T> Sub<&'a T> for Polynomial<T>
+impl<'a, T: Zero> Sub<&'a T> for Polynomial<T>
 where for<'b> T: SubAssign<&'b T> {
     type Output = Polynomial<T>;
 
     fn sub(mut self, other: &T) -> Self {
         self.cs[0] -= other;
+        self.fix_coefficients();
         self
     }
 }
 
 impl<'a, T: Clone> Sub<T> for &'a Polynomial<T>
-where T: SubAssign<T> {
+where T: SubAssign<T> + Zero {
     type Output = Polynomial<T>;
 
     fn sub(self, other: T) -> Polynomial<T> {
         let mut p = self.clone();
         p.cs[0] -= other;
+        p.fix_coefficients();
         p
     }
 }
 
-impl<'a, 'b, T: Clone> Sub<&'a T> for &'b Polynomial<T>
+impl<'a, 'b, T: Clone + Zero> Sub<&'a T> for &'b Polynomial<T>
 where for<'c> T: SubAssign<&'c T> {
     type Output = Polynomial<T>;
 
     fn sub(self, other: &T) -> Polynomial<T> {
         let mut p = self.clone();
         p.cs[0] -= other;
+        p.fix_coefficients();
         p
     }
 }
 
-impl<T> Mul<T> for Polynomial<T>
+impl<T> SubAssign<T> for Polynomial<T>
+where T: SubAssign + Zero {
+    fn sub_assign(&mut self, other: T) {
+        self.cs[0] -= other;
+        self.fix_coefficients();
+    }
+}
+
+impl<'a, T: Zero> SubAssign<&'a T> for Polynomial<T>
+where for<'b> T: SubAssign<&'b T> + Zero {
+    fn sub_assign(&mut self, other: &T) {
+        self.cs[0] -= other;
+        self.fix_coefficients();
+    }
+}
+
+impl<T: Zero> Mul<T> for Polynomial<T>
 where for<'c> T: MulAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -596,11 +659,12 @@ where for<'c> T: MulAssign<&'c T> {
         for val in self.cs.iter_mut() {
             *val *= &other;
         }
+        self.fix_coefficients();
         self
     }
 }
 
-impl<'a, T> Mul<&'a T> for Polynomial<T>
+impl<'a, T: Zero> Mul<&'a T> for Polynomial<T>
 where for<'c> T: MulAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -608,11 +672,12 @@ where for<'c> T: MulAssign<&'c T> {
         for val in self.cs.iter_mut() {
             *val *= other;
         }
+        self.fix_coefficients();
         self
     }
 }
 
-impl<'a, T: Clone> Mul<T> for &'a Polynomial<T>
+impl<'a, T: Clone + Zero> Mul<T> for &'a Polynomial<T>
 where for<'c> T: MulAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -621,11 +686,12 @@ where for<'c> T: MulAssign<&'c T> {
         for val in p.cs.iter_mut() {
             *val *= &other;
         }
+        p.fix_coefficients();
         p
     }
 }
 
-impl<'a, 'b, T: Clone> Mul<&'a T> for &'b Polynomial<T>
+impl<'a, 'b, T: Clone + Zero> Mul<&'a T> for &'b Polynomial<T>
 where for<'c> T: MulAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -634,11 +700,32 @@ where for<'c> T: MulAssign<&'c T> {
         for val in p.cs.iter_mut() {
             *val *= other;
         }
+        p.fix_coefficients();
         p
     }
 }
 
-impl<T> Div<T> for Polynomial<T>
+impl<T: Zero> MulAssign<T> for Polynomial<T>
+where for<'b> T: MulAssign<&'b T> {
+    fn mul_assign(&mut self, other: T) {
+        for val in self.cs.iter_mut() {
+            *val *= &other;
+        }
+        self.fix_coefficients();
+    }
+}
+
+impl<'a, T: Zero> MulAssign<&'a T> for Polynomial<T>
+where for<'b> T: MulAssign<&'b T> {
+    fn mul_assign(&mut self, other: &T) {
+        for val in self.cs.iter_mut() {
+            *val *= other;
+        }
+        self.fix_coefficients();
+    }
+}
+
+impl<T: Zero> Div<T> for Polynomial<T>
 where for<'c> T: DivAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -646,11 +733,12 @@ where for<'c> T: DivAssign<&'c T> {
         for val in self.cs.iter_mut() {
             *val /= &other;
         }
+        self.fix_coefficients();
         self
     }
 }
 
-impl<'a, T> Div<&'a T> for Polynomial<T>
+impl<'a, T: Zero> Div<&'a T> for Polynomial<T>
 where for<'c> T: DivAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -658,11 +746,12 @@ where for<'c> T: DivAssign<&'c T> {
         for val in self.cs.iter_mut() {
             *val /= other;
         }
+        self.fix_coefficients();
         self
     }
 }
 
-impl<'a, T: Clone> Div<T> for &'a Polynomial<T>
+impl<'a, T: Clone + Zero> Div<T> for &'a Polynomial<T>
 where for<'c> T: DivAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -671,11 +760,12 @@ where for<'c> T: DivAssign<&'c T> {
         for val in p.cs.iter_mut() {
             *val /= &other;
         }
+        p.fix_coefficients();
         p
     }
 }
 
-impl<'a, 'b, T: Clone> Div<&'a T> for &'b Polynomial<T>
+impl<'a, 'b, T: Clone + Zero> Div<&'a T> for &'b Polynomial<T>
 where for<'c> T: DivAssign<&'c T> {
     type Output = Polynomial<T>;
 
@@ -684,7 +774,28 @@ where for<'c> T: DivAssign<&'c T> {
         for val in p.cs.iter_mut() {
             *val /= other;
         }
+        p.fix_coefficients();
         p
+    }
+}
+
+impl<T: Zero> DivAssign<T> for Polynomial<T>
+where for<'b> T: DivAssign<&'b T> {
+    fn div_assign(&mut self, other: T) {
+        for val in self.cs.iter_mut() {
+            *val /= &other;
+        }
+        self.fix_coefficients();
+    }
+}
+
+impl<'a, T: Zero> DivAssign<&'a T> for Polynomial<T>
+where for<'b> T: DivAssign<&'b T> {
+    fn div_assign(&mut self, other: &T) {
+        for val in self.cs.iter_mut() {
+            *val /= other;
+        }
+        self.fix_coefficients();
     }
 }
 
