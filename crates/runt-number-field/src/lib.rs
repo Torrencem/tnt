@@ -236,7 +236,7 @@ pub mod raw {
             let modulus = if self.modulus.is_zero() { &other.modulus } else { &self.modulus };
             let prod = &self.value * &other.value;
             AlgebraicNumberR {
-                value: PseudoDivRem::pseudo_divrem(&prod, &*self.modulus).rem,
+                value: PseudoDivRem::pseudo_divrem(&prod, &*modulus).rem,
                 denom: &self.denom * &other.denom,
                 modulus: modulus.clone(),
             }.reduction()
@@ -421,6 +421,8 @@ pub mod raw {
             self.value.is_one()
         }
     }
+
+    // TODO: Allow multiplication by scalars impls
 }
 
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
@@ -489,5 +491,28 @@ mod tests {
         );
 
         assert_eq!(&val1 / &val2, val3);
+
+        let modulus = Polynomial::from_coefficients(vec![Int::from(2), Int::from(-10), Int::from(0), Int::from(0), Int::from(0), Int::from(1)]);
+
+        // Check that adding a root of x^5 - 10x + 2 works properly
+        let val = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![Int::from(0), Int::from(1)]),
+            Int::from(1),
+            modulus.clone(),
+        );
+        let val10 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![Int::from(10)]),
+            Int::from(1),
+            modulus.clone(),
+        );
+        let val2 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![Int::from(2)]),
+            Int::from(1),
+            modulus.clone(),
+        );
+
+
+        assert!(((&val).pow(&5) - &val * &val10 + &val2).is_zero());
+
     }
 }

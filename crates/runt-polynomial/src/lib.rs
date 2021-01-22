@@ -37,6 +37,9 @@ impl<T> Polynomial<T> {
         self.cs.len().saturating_sub(1)
     }
 
+    // TODO: This shouldn't panic when self.cs == vec![]. The fix might be changing this to return
+    // T instead of &T (or Cow). The problem is changing to T seems to break something, and it's
+    // hard to figure out what exactly.
     pub fn lc(&self) -> &T {
         &self.cs[self.cs.len() - 1]
     }
