@@ -67,6 +67,19 @@ pub mod raw {
             self.reduce();
             self
         }
+
+        pub fn mul_inverse(&self) -> Self {
+            // Compute B inverse mod T according to the method described on page 160
+
+            let egcd = extended_gcd(self.value.clone(), Polynomial::clone(&*self.modulus));
+            debug_assert!(egcd.gcd.coeffs().len() == 1);
+            // TODO: Can some of these clones be avoided?
+            AlgebraicNumberR {
+                value: egcd.a * self.denom.clone(),
+                denom: egcd.gcd.coeffs()[0].clone(),
+                modulus: self.modulus.clone(),
+            }.reduction()
+        }
     }
     
     impl<'a, 'b, T, R, U> Add<&'b AlgebraicNumberR<T, R>> for &'a AlgebraicNumberR<T, R>
@@ -221,6 +234,48 @@ pub mod raw {
             &self * &other
         }
     }
+
+    // Multiplicative Inverse implementation
+
+    impl<'a, 'b, T, R, U> Div<&'a AlgebraicNumberR<T, R>> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            self * other.mul_inverse()
+        }
+    }
+    
+    impl<'b, T, R, U> Div<AlgebraicNumberR<T, R>> for &'b AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            self * other.mul_inverse()
+        }
+    }
+    
+    impl<'a, T, R, U> Div<&'a AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            self * other.mul_inverse()
+        }
+    }
+    
+    impl<T, R, U> Div<AlgebraicNumberR<T, R>> for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PseudoDivRem<Output=T, MultType=U> + PartialEq + Clone,
+          R: Deref<Target=Polynomial<T>> + Clone {
+        type Output = AlgebraicNumberR<T, R>;
+
+        fn div(self, other: AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
+            self * other.mul_inverse()
+        }
+    }
 }
 
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
@@ -229,6 +284,8 @@ impl<T, U> AlgebraicNumber<T>
 where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone {
     // TODO: Make this constuctor in a way that multiple AlgebraicNumbers can share a reference to
     // the same modulus
+    // NOTE that this function doesn't assert that `modulus` is irreducible, and so logic errors
+    // may occur if that's not the case.
     pub fn new(value: Polynomial<T>, denom: T, modulus: Polynomial<T>) -> Self {
         raw::AlgebraicNumberR {
             value, denom,
@@ -245,6 +302,7 @@ mod tests {
 
     #[test]
     fn test_basic() {
+        // Some select examples over Q(i)
         let modulus = Polynomial::from_coefficients(vec![1i64, 0, 1]);
         
         // Check that ((1 - i) / 2)^2 == -i / 2
@@ -259,9 +317,31 @@ mod tests {
         let val2 = AlgebraicNumber::new(
             Polynomial::from_coefficients(vec![0, -1]),
             2,
-            modulus,
+            modulus.clone(),
         );
         
         assert_eq!(&val1 * &val1, val2);
+
+        // Check that (3 + 5i) / (-2 + 3i) == (9 - 19i) / 13
+        // 3 + 5i
+        let val1 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![3, 5]),
+            1,
+            modulus.clone(),
+        );
+        // -2 + 3i
+        let val2 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![-2, 3]),
+            1,
+            modulus.clone(),
+        );
+        // (9 - 19i) / 13
+        let val3 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![9, -19]),
+            13,
+            modulus.clone(),
+        );
+
+        assert_eq!(&val1 / &val2, val3);
     }
 }
