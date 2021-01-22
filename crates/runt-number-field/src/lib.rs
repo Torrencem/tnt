@@ -23,22 +23,38 @@ pub mod raw {
     where T: Ring + Gcd + PartialEq,
           R: Deref<Target=Polynomial<T>> + Clone,
     {
-        // TODO: Create a reduce operator which checks for factors of denom in the numerator and
-        // add it everywhere necessary so that this is an invariant
-        value: Polynomial<T>,
-        denom: T,
-        modulus: R,
+        pub(crate) value: Polynomial<T>,
+        pub(crate) denom: T,
+        pub(crate) modulus: R,
     }
 
-    // TODO: Eq, PartialEq impls
-    // TODO: multiplicative inverse, Div impls
-
-    impl<T, R> AlgebraicNumberR<T, R>
+    impl<T, R> PartialEq for AlgebraicNumberR<T, R>
     where T: Ring + Gcd + PartialEq,
           R: Deref<Target=Polynomial<T>> + Clone,
     {
-        pub fn reduce<U>(&mut self)
-        where T: PseudoDivRem<Output=T, MultType=U> + Clone, {
+        fn eq(&self, other: &Self) -> bool {
+            self.value == other.value && self.denom == other.denom
+        }
+    }
+
+    impl<T, R> Eq for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PartialEq,
+          R: Deref<Target=Polynomial<T>> + Clone,
+    { }
+
+    // TODO: multiplicative inverse, Div impls
+
+    impl<T, R, U> AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone,
+          R: Deref<Target=Polynomial<T>> + Clone,
+    {
+        pub fn new_raw(value: Polynomial<T>, denom: T, modulus: R) -> Self {
+            AlgebraicNumberR {
+                value, denom, modulus
+            }.reduction()
+        }
+
+        pub fn reduce(&mut self) {
             let common_factor: T = gcd(&self.value.cont(), &self.denom);
             if common_factor.is_one() {
                 return;
@@ -47,8 +63,7 @@ pub mod raw {
             self.denom = pdiv(self.denom.clone(), common_factor);
         }
 
-        pub fn reduction<U>(mut self) -> Self
-        where T: PseudoDivRem<Output=T, MultType=U> + Clone, {
+        pub fn reduction(mut self) -> Self {
             self.reduce();
             self
         }
@@ -167,13 +182,11 @@ pub mod raw {
 
         fn mul(self, other: &AlgebraicNumberR<T, R>) -> AlgebraicNumberR<T, R> {
             let prod = &self.value * &other.value;
-            // I'm *pretty sure* I don't need to reduce here, although that might only be true in a
-            // UFD or something similar
             AlgebraicNumberR {
                 value: PseudoDivRem::pseudo_divrem(&prod, &*self.modulus).rem,
                 denom: &self.denom * &other.denom,
                 modulus: self.modulus.clone(),
-            }
+            }.reduction()
         }
     }
     
@@ -212,5 +225,43 @@ pub mod raw {
 
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
 
+impl<T, U> AlgebraicNumber<T>
+where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone {
+    // TODO: Make this constuctor in a way that multiple AlgebraicNumbers can share a reference to
+    // the same modulus
+    pub fn new(value: Polynomial<T>, denom: T, modulus: Polynomial<T>) -> Self {
+        raw::AlgebraicNumberR {
+            value, denom,
+            modulus: Arc::new(modulus),
+        }.reduction()
+    }
+}
 
 // TODO: Complete this module, add test cases
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_basic() {
+        let modulus = Polynomial::from_coefficients(vec![1i64, 0, 1]);
+        
+        // Check that ((1 - i) / 2)^2 == -i / 2
+        // 1 - i
+        let val1 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![1, -1]),
+            2,
+            // This clone will probably be unnecessary eventually
+            modulus.clone(),
+        );
+        // -i / 2
+        let val2 = AlgebraicNumber::new(
+            Polynomial::from_coefficients(vec![0, -1]),
+            2,
+            modulus,
+        );
+        
+        assert_eq!(&val1 * &val1, val2);
+    }
+}
