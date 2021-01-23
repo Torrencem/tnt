@@ -1,10 +1,11 @@
 [package]
-name = "runt-number-field"
+name = "tnt-alg"
 version = "0.1.0"
 authors = ["Matthew Torrence <matt@torrencefamily.net>"]
 edition = "2018"
 
 [dependencies]
-runt-polynomial = { path = "../runt-polynomial" }
-runt-alg = { path = "../runt-alg" }
+num-traits = "0.2.14"
 static_assertions = "1.1.0"
+ramp = "0.5.9"
+ordered-float = "2.0.1"
