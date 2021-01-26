@@ -40,12 +40,12 @@ let modulus = Arc::new(modulus);
 // Create the element (5 + 3i) / 2 in Q(i)
 let val_a = AlgebraicNumber::new_with_modulus(
     Polynomial::from_coefficients(vec![5, 3]), 2,
-    Arc::clone(modulus));
+    Arc::clone(&modulus));
 
 // Create another element (5 - 3i) / 2
 let val_b = AlgebraicNumber::new_with_modulus(
     Polynomial::from_coefficients(vec![5, -3]), 2,
-    Arc::clone(modulus));
+    Arc::clone(&modulus));
 
 // Prints "17 / 2"
 println!("{}", val_a * val_b);

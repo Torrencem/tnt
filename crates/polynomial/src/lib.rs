@@ -20,6 +20,67 @@ pub struct Polynomial<T> {
     cs: Vec<T>,
 }
 
+// Impl display strictly. It would be nice to have fallbacks that don't require so much (maybe with
+// specializations on different trait bounds) but this isn't easy yet.
+// It's also annoying that this doesn't support nested polynomials! But again, specialization might
+// be the only solution.
+impl<T> Polynomial<T>
+where T: Zero + One + fmt::Display + Clone + PartialEq,
+      for<'a> &'a T: Neg<Output=T>,
+      for<'a> &'a T: PartialOrd {
+    /// Format this polynomial with a given variable name `var`. This is meant to be used in a
+    /// similar way to fmt::Display::fmt(..).
+    pub fn format_with_var<C: fmt::Display, W: fmt::Write>(&self, var: C, with_parens: bool, f: &mut W) -> fmt::Result {
+        if self.cs.len() == 0 {
+            let z: T = Zero::zero();
+            return write!(f, "{}", z);
+        }
+        let mut leading = true;
+        for (index, coeff) in self.cs.iter()
+                        .enumerate()
+                        .rev()
+                        .filter(|(_, val)| !val.is_zero())
+        {
+            let negative = coeff < &Zero::zero();
+            let coeff = if negative && !leading { Cow::Owned(-coeff) } else { Cow::Borrowed(coeff) };
+            let lead = if !leading { 
+                if negative { " - " } else { " + " }
+            } else { "" };
+            let lparen = if with_parens { "(" } else { "" };
+            let rparen = if with_parens { ")" } else { "" };
+            if coeff.is_one() {
+                if index == 0 {
+                    write!(f, "{}{}{}{}", lead, lparen, coeff, rparen)?;
+                } else if index == 1 {
+                    write!(f, "{}{}", lead, var)?;
+                } else {
+                    write!(f, "{}{}^{}", lead, var, index)?;
+                }
+            } else {
+                if index == 0 {
+                    write!(f, "{}{}{}{}", lead, lparen, coeff, rparen)?;
+                } else if index == 1 {
+                    write!(f, "{}{}{}{}{}", lead, lparen, coeff, rparen, var)?;
+                } else {
+                    write!(f, "{}{}{}{}{}^{}", lead, lparen, coeff, rparen, var, index)?;
+                }
+            }
+            leading = false;
+        }
+        Ok(())
+    }
+}
+
+use std::fmt;
+impl<T> fmt::Display for Polynomial<T>
+where T: Zero + One + fmt::Display + Clone + PartialEq,
+      for<'a> &'a T: Neg<Output=T>,
+      for<'a> &'a T: PartialOrd {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.format_with_var("x", false, f)
+    }
+}
+
 impl<T> Polynomial<T> {
     /// Returns a reference to the coefficients of the polynomial. The i-th index of this slice is
     /// the coefficient on x^i.
@@ -1150,5 +1211,14 @@ mod tests {
                 assert_eq!(&u * &egcd.a + &v * &egcd.b, egcd.gcd);
             }
         }
+    }
+
+    #[test]
+    fn test_fmt() {
+        let p = Polynomial::from_coefficients(vec![3, 2, 1]);
+        assert_eq!(p.to_string(), "x^2 + 2x + 3");
+
+        let p = Polynomial::from_coefficients(vec![1, 1, 2, 0, 3]);
+        assert_eq!(p.to_string(), "3x^4 + 2x^2 + x + 1");
     }
 }

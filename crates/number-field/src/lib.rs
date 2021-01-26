@@ -28,10 +28,35 @@ pub mod raw {
           R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
     {
         pub(crate) value: Polynomial<T>,
+        // TODO: If denom is negative and numer is positive vs vice versa, does this affect
+        // equality? Should .reduce() change until denom is always positive? This is important!
+        // TODO TODO
         pub(crate) denom: T,
         // This value is 0 if this AlgebraicNumberR was generated from the One or Zero traits. If
         // that's the case, traits will use the "more defined" moduli in operations.
         pub(crate) modulus: R,
+    }
+
+    use std::fmt;
+    impl<T, R> fmt::Display for AlgebraicNumberR<T, R>
+    where T: Ring + Gcd + PartialEq + Clone + fmt::Display,
+          for<'a> &'a T: PartialOrd,
+          R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let should_write_parens = self.value.coeffs().iter().filter(|x| !x.is_zero()).count() > 1;
+            if should_write_parens {
+                write!(f, "(")?;
+            }
+            self.value.format_with_var("a", false, f)?;
+            if should_write_parens {
+                write!(f, ")")?;
+            }
+            if !self.denom.is_one() {
+                write!(f, " / {}", self.denom)?;
+            }
+            Ok(())
+        }
     }
 
     impl<T, R> PartialEq for AlgebraicNumberR<T, R>
@@ -778,5 +803,27 @@ mod tests {
         assert!(((&val).pow(&5) - &val * &val10 + &val2).is_zero());
         assert!(((&val).pow(&5) - &val * Int::from(10) + Int::from(2)).is_zero());
 
+    }
+
+    #[test]
+    fn readme_test() {
+        use std::sync::Arc;
+
+        // Create the polynomial x^2 + 1
+        let modulus = poly!(1;x^2 + 1;x^0);
+        // Wrap it in an Arc
+        let modulus = Arc::new(modulus);
+
+        // Create the element (5 + 3i) / 2 in Q(i)
+        let val_a = AlgebraicNumber::new_with_modulus(
+            Polynomial::from_coefficients(vec![5, 3]), 2,
+            Arc::clone(&modulus));
+
+        // Create another element (5 - 3i) / 2
+        let val_b = AlgebraicNumber::new_with_modulus(
+            Polynomial::from_coefficients(vec![5, -3]), 2,
+            Arc::clone(&modulus));
+
+        assert_eq!((val_a * val_b).to_string(), "17 / 2");
     }
 }
