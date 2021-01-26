@@ -7,8 +7,8 @@
 // NOTE: Be careful using One::one() and Zero::zero(), since they are pretty ill-defined (no
 // modulus). If you know what modulus you want you should be using that to avoid logic errors
 
-use runt_polynomial::*;
-use runt_alg::*;
+use tnt_polynomial::*;
+use tnt_alg::*;
 use std::ops::Deref;
 use std::sync::Arc;
 

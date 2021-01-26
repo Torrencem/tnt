@@ -5,6 +5,6 @@ authors = ["Matthew Torrence <matt@torrencefamily.net>"]
 edition = "2018"
 
 [dependencies]
-runt-polynomial = { path = "../runt-polynomial" }
-runt-alg = { path = "../runt-alg" }
+tnt-polynomial = { path = "../polynomial" }
+tnt-alg = { path = "../alg" }
 static_assertions = "1.1.0"

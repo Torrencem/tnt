@@ -1,12 +1,15 @@
 
 #![feature(iterator_fold_self)]
 
-use num_traits::{Zero, One};
 use std::fmt::Write;
 use std::ops::{Add, Sub, Mul, Div, Neg, AddAssign, MulAssign, SubAssign, DivAssign};
 use std::cmp::max;
 use std::borrow::Cow;
-use runt_alg::*;
+use tnt_alg::*;
+
+// needs to be exported for macros
+#[doc(hidden)]
+pub use num_traits::{Zero, One};
 
 /// A polynomial with coefficients in some type T.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -835,7 +838,7 @@ impl<'a, T: Clone + Neg<Output=T>> Neg for &'a Polynomial<T> {
     }
 }
 
-// Implementations for runt-algs traits
+// Implementations for alg traits
 // TODO: Take a closer look at these weird requirements
 impl<T: AssociativeAddition> AssociativeAddition for Polynomial<T> {}
 impl<T: CommutativeAddition + AssociativeAddition> CommutativeAddition for Polynomial<T> {}
@@ -997,6 +1000,79 @@ where T: Gcd + Zero + Clone + Ring + Power<Power=u64, Output=T> + One,
 }
 
 
+// Utility functions for polynomial macro
+#[doc(hidden)]
+pub const fn const_max__(a: usize, b: usize) -> usize {
+    if a < b {
+        b
+    } else {
+        a
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! max__ {
+    ($e:expr, $($es:expr),+) => {
+        $crate::const_max__($e, $crate::max__!($($es),+))
+    };
+    ($e:expr) => {
+        $e
+    };
+}
+
+/// Create a polynomial from coefficients. Note that the syntax of this macro includes semicolons
+/// ";" after each coefficient expression, since otherwise syntax would be very ambiguous. In
+/// addition, each exponent must be a valid usize literal.
+///
+/// # Examples
+///
+/// ```
+/// // Full way to use this macro
+/// use tnt_polynomial::{Polynomial, poly};
+/// let val = 10;
+/// let p = poly!(val*2;x^2 + 10;x^1 + -1;x^0);
+/// assert_eq!(p, Polynomial::from_coefficients(vec![-1, 10, 20]));
+///
+/// // All possible abbreviated shortcuts for convenience
+/// let p = poly!(x^5);
+/// assert_eq!(p, Polynomial::from_coefficients(vec![0, 0, 0, 0, 0, 1]));
+///
+/// let p = poly!(x);
+/// assert_eq!(p, Polynomial::from_coefficients(vec![0, 1]));
+///
+/// let p = poly!(3;x);
+/// assert_eq!(p, Polynomial::from_coefficients(vec![0, 3]));
+///
+/// let p = poly!(100);
+/// assert_eq!(p, Polynomial::from_coefficients(vec![100]));
+/// ```
+#[macro_export]
+macro_rules! poly {
+    ($a:expr ;x^ $b:literal $(+ $c:expr ;x^ $d:literal)*) => {{
+        const SIZE: usize = $crate::max__!($b $(, $d)*) + 1;
+        let mut v = vec![$crate::Zero::zero(); SIZE];
+        v[$b] = $a;
+        $(
+            v[$d] = $c;
+        )*
+        Polynomial::from_coefficients(v)
+    }};
+    (x^$b:literal) => {{
+        let mut v = vec![$crate::Zero::zero(); $b + 1];
+        v[$b] = 1;
+        Polynomial::from_coefficients(v)
+    }};
+    ($a:expr ;x) => {{
+        Polynomial::from_coefficients(vec![$crate::Zero::zero(), $a])
+    }};
+    (x) => {{
+        Polynomial::from_coefficients(vec![$crate::Zero::zero(), $crate::One::one()])
+    }};
+    ($a:expr) => {{
+        Polynomial::from_coefficients(vec![$a])
+    }};
+}
 
 #[cfg(test)]
 mod tests {
@@ -1013,13 +1089,6 @@ mod tests {
         
         let p = Polynomial::from_coefficients(vec![1, 1, -20]);
         assert_eq!(p.eval(&2), -77);
-    }
-
-    #[test]
-    fn test_misc() {
-        let p = Polynomial::from_coefficients(vec![2, 1, -3]);
-        let q = Polynomial::from_coefficients(vec![2, 0, 0, 1, -3]);
-        println!("{}", (&p + &q).pretty_format("x"))
     }
 
     #[test]
