@@ -25,9 +25,8 @@ pub struct Polynomial<T> {
 // It's also annoying that this doesn't support nested polynomials! But again, specialization might
 // be the only solution.
 impl<T> Polynomial<T>
-where T: Zero + One + fmt::Display + Clone + PartialEq,
-      for<'a> &'a T: Neg<Output=T>,
-      for<'a> &'a T: PartialOrd {
+where T: Zero + One + fmt::Display + Clone + PartialEq + PartialOrd,
+      for<'a> &'a T: Neg<Output=T> {
     /// Format this polynomial with a given variable name `var`. This is meant to be used in a
     /// similar way to fmt::Display::fmt(..).
     pub fn format_with_var<C: fmt::Display, W: fmt::Write>(&self, var: C, with_parens: bool, f: &mut W) -> fmt::Result {
@@ -41,7 +40,7 @@ where T: Zero + One + fmt::Display + Clone + PartialEq,
                         .rev()
                         .filter(|(_, val)| !val.is_zero())
         {
-            let negative = coeff < &Zero::zero();
+            let negative = *coeff < Zero::zero();
             let coeff = if negative && !leading { Cow::Owned(-coeff) } else { Cow::Borrowed(coeff) };
             let lead = if !leading { 
                 if negative { " - " } else { " + " }
@@ -73,9 +72,8 @@ where T: Zero + One + fmt::Display + Clone + PartialEq,
 
 use std::fmt;
 impl<T> fmt::Display for Polynomial<T>
-where T: Zero + One + fmt::Display + Clone + PartialEq,
-      for<'a> &'a T: Neg<Output=T>,
-      for<'a> &'a T: PartialOrd {
+where T: Zero + One + fmt::Display + Clone + PartialEq + PartialOrd,
+      for<'a> &'a T: Neg<Output=T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.format_with_var("x", false, f)
     }
