@@ -51,6 +51,6 @@ let val_b = AlgebraicNumber::new_with_modulus(
 println!("{}", val_a * val_b);
 ```
 
-More precisely, what `AlgebraicNumber<T>` represents (and why it uses polynomials) is an element of the quotient `Frac(T)[x] / <p(x)>` where `p` is some irreducible polynomial with coefficients in `T`.
+More precisely, what `AlgebraicNumber<T>` represents is an element of the quotient `Frac(T)[x] / <p(x)>` where `p` is some irreducible polynomial with coefficients in `T`. This is equivalent to "adding" a root `a` so that `p(a) = 0`, and writing elements as polynomials in `a` of degree less than the degree of `p`.
 
 The `AlgebraicNumberR<T, R>` type is generic over the type `R` of its reference to its modulus. This is to allow for potentially more efficient operations (for example, `AlgebraicNumberR<T, Polynomial<T>>` is potentially faster, but less space efficient than `AlgebraicNumberR<T, Arc<Polynomial<T>>>`, which is the default used for `AlgebraicNumber<T>`).
