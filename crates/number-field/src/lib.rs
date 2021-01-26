@@ -20,7 +20,7 @@ pub mod raw {
     use super::*;
     use std::ops::*;
 
-    /// An element of a number field isomorphic to Q\[x\]/<*modulus>
+    /// An element of a number field isomorphic to Frac(T)\[x\]/<*modulus>
     /// This struct is generic over the way to references the modulus.
     #[derive(Clone, Debug)]
     pub struct AlgebraicNumberR<T, R> 
@@ -52,9 +52,27 @@ pub mod raw {
     where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone,
           R: Deref<Target=Polynomial<T>> + From<Polynomial<T>> + Clone,
     {
-        pub fn new_raw(value: Polynomial<T>, denom: T, modulus: R) -> Self {
+        /// Create a new `AlgebraicNumber`. Use this method if you already have an R that you can
+        /// pass in. This makes it possible for multiple `AlgebraicNumber`s to share a reference to
+        /// the same modulus.
+        ///
+        /// Note that this function does not check if the modulus is irreducible, and so logic
+        /// errors may occur if that is not the case.
+        pub fn new_with_modulus(value: Polynomial<T>, denom: T, modulus: R) -> Self {
             AlgebraicNumberR {
                 value, denom, modulus
+            }.reduction()
+        }
+
+        /// Create a new `AlgebraicNumber`, automatically wrapping the modulus in an R using the
+        /// assumption that `R: From<Polynomial<T>>`.
+        ///
+        /// Note that this function does not check if the modulus is irreducible, and so logic
+        /// errors may occur if that is not the case.
+        pub fn new(value: Polynomial<T>, denom: T, modulus: Polynomial<T>) -> Self {
+            AlgebraicNumberR {
+                value, denom,
+                modulus: From::from(modulus),
             }.reduction()
         }
 
@@ -678,21 +696,12 @@ pub mod raw {
 }
 
 /// An element of a number field isomorphic to Q\[x\]/<*modulus>. See [raw::AlgebraicNumberR] for
-/// more impls
+/// more functions and implementations.
 pub type AlgebraicNumber<T> = raw::AlgebraicNumberR<T, Arc<Polynomial<T>>>;
 
 impl<T, U> AlgebraicNumber<T>
 where T: Ring + Gcd + PartialEq + PseudoDivRem<Output=T, MultType=U> + Clone {
-    // TODO: Make this constuctor in a way that multiple AlgebraicNumbers can share a reference to
-    // the same modulus
-    // NOTE that this function doesn't assert that `modulus` is irreducible, and so logic errors
-    // may occur if that's not the case.
-    pub fn new(value: Polynomial<T>, denom: T, modulus: Polynomial<T>) -> Self {
-        raw::AlgebraicNumberR {
-            value, denom,
-            modulus: Arc::new(modulus),
-        }.reduction()
-    }
+    // N/A yet! Nothing Arc specific.
 }
 
 assert_impl_all!(AlgebraicNumber<i32>: Field);
