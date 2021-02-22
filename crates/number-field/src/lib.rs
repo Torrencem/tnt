@@ -749,7 +749,6 @@ mod tests {
         let val1 = AlgebraicNumber::new(
             Polynomial::from_coefficients(vec![1, -1]),
             2,
-            // This clone will probably be unnecessary eventually
             modulus.clone(),
         );
         // -i / 2

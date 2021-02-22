@@ -33,6 +33,7 @@ use tnt_number_field::AlgebraicNumber;
 use std::sync::Arc;
 
 // Create the polynomial x^2 + 1
+// Read as "1 times x^2 + 1 times x^0"
 let modulus = poly!(1;x^2 + 1;x^0);
 // Wrap it in an Arc
 let modulus = Arc::new(modulus);
